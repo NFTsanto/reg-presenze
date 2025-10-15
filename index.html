@@ -458,17 +458,39 @@
     <!-- Login Form -->
     <div id="loginContainer" class="login-container">
         <div class="login-box">
-            <h2>🔐 Accesso</h2>
-            <div class="input-group">
-                <label>Email:</label>
-                <input type="email" id="loginEmail" placeholder="Inserisci la tua email">
+            <div id="loginForm">
+                <h2>🔐 Accesso</h2>
+                <div class="input-group">
+                    <label>Email:</label>
+                    <input type="email" id="loginEmail" placeholder="Inserisci la tua email">
+                </div>
+                <div class="input-group">
+                    <label>Password:</label>
+                    <input type="password" id="loginPassword" placeholder="Inserisci la tua password">
+                </div>
+                <button class="btn btn-primary" onclick="handleLogin()">Accedi</button>
+                <button class="btn btn-success" onclick="toggleRegistrationForm()" style="margin-top: 10px;">Registra Nuovo Utente</button>
+                <p id="loginError" class="error-message"></p>
             </div>
-            <div class="input-group">
-                <label>Password:</label>
-                <input type="password" id="loginPassword" placeholder="Inserisci la tua password">
+            
+            <div id="registrationForm" style="display: none;">
+                <h2>📝 Registrazione</h2>
+                <div class="input-group">
+                    <label>Email:</label>
+                    <input type="email" id="regEmail" placeholder="Inserisci la tua email">
+                </div>
+                <div class="input-group">
+                    <label>Password:</label>
+                    <input type="password" id="regPassword" placeholder="Inserisci la password">
+                </div>
+                <div class="input-group">
+                    <label>Conferma Password:</label>
+                    <input type="password" id="regPasswordConfirm" placeholder="Conferma la password">
+                </div>
+                <button class="btn btn-success" onclick="handleRegistration()">Registrati</button>
+                <button class="btn btn-warning" onclick="toggleRegistrationForm()" style="margin-top: 10px;">Torna al Login</button>
+                <p id="regError" class="error-message"></p>
             </div>
-            <button class="btn btn-primary" onclick="handleLogin()">Accedi</button>
-            <p id="loginError" class="error-message"></p>
         </div>
     </div>
 
@@ -545,7 +567,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         // Configurazione Firebase
         const firebaseConfig = {
@@ -1084,7 +1106,50 @@
             }
         });
         
-        // Esponi le funzioni globalmente per permettere l'accesso dagli eventi onclick
+        // Gestione della registrazione
+        async function handleRegistration() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+            const errorElement = document.getElementById('regError');
+            
+            if (password !== passwordConfirm) {
+                errorElement.textContent = 'Le password non corrispondono';
+                return;
+            }
+            
+            try {
+                errorElement.textContent = '';
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                toggleRegistrationForm(); // Torna al form di login
+                alert('Registrazione completata con successo! Ora puoi accedere.');
+            } catch (error) {
+                console.error('Errore di registrazione:', error);
+                errorElement.textContent = 'Errore di registrazione: ' + error.message;
+            }
+        }
+        
+        function toggleRegistrationForm() {
+            const loginForm = document.getElementById('loginForm');
+            const registrationForm = document.getElementById('registrationForm');
+            const loginError = document.getElementById('loginError');
+            const regError = document.getElementById('regError');
+            
+            loginError.textContent = '';
+            regError.textContent = '';
+            
+            if (loginForm.style.display !== 'none') {
+                loginForm.style.display = 'none';
+                registrationForm.style.display = 'block';
+            } else {
+                loginForm.style.display = 'block';
+                registrationForm.style.display = 'none';
+            }
+        }
+
+        // Esponi le funzioni globalmente
+        window.handleRegistration = handleRegistration;
+        window.toggleRegistrationForm = toggleRegistrationForm;
         window.updateCalendar = updateCalendar;
         window.exportToExcel = exportToExcel;
         window.toggleManage = toggleManage;
