@@ -474,21 +474,42 @@
             </div>
             
             <div id="registrationForm" style="display: none;">
-                <h2>📝 Registrazione</h2>
+                <h2>📝 Registrazione Nuovo Utente</h2>
                 <div class="input-group">
-                    <label>Email:</label>
-                    <input type="email" id="regEmail" placeholder="Inserisci la tua email">
+                    <label>Nome completo:</label>
+                    <input type="text" id="regName" placeholder="Es: Mario Rossi" required>
+                </div>
+                <div class="input-group">
+                    <label>Email aziendale:</label>
+                    <input type="email" id="regEmail" placeholder="Es: mario.rossi@azienda.it" required>
+                </div>
+                <div class="input-group">
+                    <label>Ruolo:</label>
+                    <select id="regRole" required>
+                        <option value="">Seleziona ruolo...</option>
+                        <option value="admin">Amministratore</option>
+                        <option value="manager">Manager</option>
+                        <option value="user">Utente standard</option>
+                    </select>
                 </div>
                 <div class="input-group">
                     <label>Password:</label>
-                    <input type="password" id="regPassword" placeholder="Inserisci la password">
+                    <input type="password" id="regPassword" 
+                           placeholder="Min 6 caratteri" 
+                           pattern=".{6,}" 
+                           title="La password deve contenere almeno 6 caratteri"
+                           required>
                 </div>
                 <div class="input-group">
                     <label>Conferma Password:</label>
-                    <input type="password" id="regPasswordConfirm" placeholder="Conferma la password">
+                    <input type="password" id="regPasswordConfirm" 
+                           placeholder="Ripeti la password"
+                           required>
                 </div>
-                <button class="btn btn-success" onclick="handleRegistration()">Registrati</button>
-                <button class="btn btn-warning" onclick="toggleRegistrationForm()" style="margin-top: 10px;">Torna al Login</button>
+                <button class="btn btn-success" onclick="handleRegistration()">Registra Utente</button>
+                <button class="btn btn-warning" onclick="toggleRegistrationForm()" style="margin-top: 10px;">
+                    Torna al Login
+                </button>
                 <p id="regError" class="error-message"></p>
             </div>
         </div>
@@ -1108,10 +1129,23 @@
         
         // Gestione della registrazione
         async function handleRegistration() {
-            const email = document.getElementById('regEmail').value;
+            const name = document.getElementById('regName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const role = document.getElementById('regRole').value;
             const password = document.getElementById('regPassword').value;
             const passwordConfirm = document.getElementById('regPasswordConfirm').value;
             const errorElement = document.getElementById('regError');
+            
+            // Validazione
+            if (!name || !email || !role || !password) {
+                errorElement.textContent = 'Tutti i campi sono obbligatori';
+                return;
+            }
+
+            if (password.length < 6) {
+                errorElement.textContent = 'La password deve contenere almeno 6 caratteri';
+                return;
+            }
             
             if (password !== passwordConfirm) {
                 errorElement.textContent = 'Le password non corrispondono';
@@ -1120,12 +1154,31 @@
             
             try {
                 errorElement.textContent = '';
+                // Crea l'utente in Firebase Auth
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                toggleRegistrationForm(); // Torna al form di login
+                
+                // Salva i dati aggiuntivi dell'utente in Firestore
+                await setDoc(doc(db, 'users', userCredential.user.uid), {
+                    name: name,
+                    email: email,
+                    role: role,
+                    createdAt: new Date().toISOString()
+                });
+
                 alert('Registrazione completata con successo! Ora puoi accedere.');
+                toggleRegistrationForm(); // Torna al form di login
             } catch (error) {
                 console.error('Errore di registrazione:', error);
-                errorElement.textContent = 'Errore di registrazione: ' + error.message;
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        errorElement.textContent = 'Questa email è già registrata';
+                        break;
+                    case 'auth/invalid-email':
+                        errorElement.textContent = 'Email non valida';
+                        break;
+                    default:
+                        errorElement.textContent = 'Errore durante la registrazione: ' + error.message;
+                }
             }
         }
         
@@ -1175,3 +1228,6 @@
         }
         
         init();
+    </script>
+</body>
+</html>
