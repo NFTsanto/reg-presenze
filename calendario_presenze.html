@@ -392,6 +392,59 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #667eea;
+        }
+
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            padding: 4px 12px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
     </style>
 </head>
 <body>
@@ -402,7 +455,25 @@
         </div>
     </div>
 
-    <div class="container">
+    <!-- Login Form -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-box">
+            <h2>🔐 Accesso</h2>
+            <div class="input-group">
+                <label>Email:</label>
+                <input type="email" id="loginEmail" placeholder="Inserisci la tua email">
+            </div>
+            <div class="input-group">
+                <label>Password:</label>
+                <input type="password" id="loginPassword" placeholder="Inserisci la tua password">
+            </div>
+            <button class="btn btn-primary" onclick="handleLogin()">Accedi</button>
+            <p id="loginError" class="error-message"></p>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="container" id="appContainer" style="display: none;">
         <div class="header">
             <h1>📅 Gestione Presenze Dipendenti</h1>
             <p>Sistema completo per la gestione delle presenze con sincronizzazione cloud</p>
@@ -474,6 +545,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         // Configurazione Firebase
         const firebaseConfig = {
@@ -487,6 +559,7 @@
 
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
         // Struttura dati
@@ -495,6 +568,59 @@
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let currentEditCell = null;
+        
+        // Gestione dell'autenticazione
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorElement = document.getElementById('loginError');
+            
+            try {
+                errorElement.textContent = '';
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error('Errore di login:', error);
+                errorElement.textContent = 'Errore di accesso: ' + error.message;
+            }
+        }
+        
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Errore durante il logout:', error);
+            }
+        }
+        
+        // Gestione dello stato dell'autenticazione
+        onAuthStateChanged(auth, async (user) => {
+            const loginContainer = document.getElementById('loginContainer');
+            const appContainer = document.getElementById('appContainer');
+            
+            if (user) {
+                // Utente autenticato
+                loginContainer.style.display = 'none';
+                appContainer.style.display = 'block';
+                
+                // Aggiorna l'intestazione con le info dell'utente
+                const header = document.querySelector('.header');
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = `
+                    <span>👤 ${user.email}</span>
+                    <button class="logout-btn" onclick="window.handleLogout()">Esci</button>
+                `;
+                header.appendChild(userInfo);
+                
+                // Avvia il caricamento dei dati
+                await loadData();
+            } else {
+                // Utente non autenticato
+                loginContainer.style.display = 'flex';
+                appContainer.style.display = 'none';
+                updateSyncStatus('not-synced', '🔒 Accesso richiesto');
+            }
+        });
 
         // Funzioni per aggiornare lo stato di sincronizzazione
         function updateSyncStatus(status, message) {
@@ -974,13 +1100,13 @@
         window.saveFerie = saveFerie;
         window.saveMutua = saveMutua;
         window.clearDay = clearDay;
+        window.handleLogin = handleLogin;
+        window.handleLogout = handleLogout;
         
         // Inizializzazione
         async function init() {
-            await loadData();
             document.getElementById('monthSelect').value = currentMonth;
             document.getElementById('yearInput').value = currentYear;
-            updateCalendar();
         }
         
         init();
