@@ -543,6 +543,21 @@
             <div id="modalContent"></div>
         </div>
     </div>
+
+    <!-- Modal per inserimento ore di compilazione massiva -->
+    <div id="fillAllModal" class="modal">
+        <div class="modal-content">
+            <h3>Compila tutti i giorni</h3>
+            <div class="input-group">
+                <label>Ore da inserire per ogni giorno feriale:</label>
+                <input type="number" id="fillAllHoursInput" min="1" max="24" step="0.5" value="8">
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn btn-success" id="confirmFillAllBtn">Conferma</button>
+                <button class="modal-btn" style="background: #6c757d; color: white;" onclick="closeFillAllModal()">Annulla</button>
+            </div>
+        </div>
+    </div>
     
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -845,6 +860,51 @@
             }
         }
         
+        // Aggiungi la classe per il nuovo colore delle celle
+        const style = document.createElement('style');
+        style.innerHTML = `
+        .day-cell.custom-hours {
+            background: #e6d6fa !important;
+            color: #4b2673;
+            font-weight: 600;
+        }
+        `;
+        document.head.appendChild(style);
+
+        // Variabile per tenere traccia del dipendente/azienda selezionato per il fill all
+        let fillAllContext = null;
+
+        // Sostituisci la funzione fillAllDays con una che apre il modal
+        function openFillAllModal(companyId, employee) {
+            fillAllContext = { companyId, employee };
+            document.getElementById('fillAllHoursInput').value = 8;
+            document.getElementById('fillAllModal').classList.add('active');
+        }
+
+        // Chiudi il modal
+        function closeFillAllModal() {
+            document.getElementById('fillAllModal').classList.remove('active');
+            fillAllContext = null;
+        }
+
+        // Conferma e compila tutti i giorni
+        async function confirmFillAllDays() {
+            if (!fillAllContext) return;
+            const hours = document.getElementById('fillAllHoursInput').value;
+            const companyId = fillAllContext.companyId;
+            const employee = fillAllContext.employee;
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+
+            updateSyncStatus('syncing', '🔄 Compilazione in corso...');
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (!isWeekend(day, currentMonth, currentYear)) {
+                    await setPresence(companyId, employee, day, hours);
+                }
+            }
+            closeFillAllModal();
+            updateCalendar();
+        }
+
         function updateCalendar() {
             currentMonth = parseInt(document.getElementById('monthSelect').value);
             currentYear = parseInt(document.getElementById('yearInput').value);
@@ -883,7 +943,9 @@
                     html += `
                         <tr>
                             <td class="employee-name">${employee}</td>
-                            <td><button class="btn btn-primary fill-all-btn" onclick="window.fillAllDays(${company.id}, '${employee}')">Compila tutto con 8h</button></td>
+                            <td>
+                                <button class="btn btn-primary fill-all-btn" onclick="window.openFillAllModal('${company.id}', '${employee}')">Compila tutto</button>
+                            </td>
                     `;
                     
                     for (let day = 1; day <= daysInMonth; day++) {
@@ -895,6 +957,7 @@
                         if (presence.value) {
                             if (presence.value === 'F') cellClass += ' ferie';
                             else if (presence.value === 'M') cellClass += ' mutua';
+                            else if (presence.value !== '8') cellClass += ' custom-hours';
                             else cellClass += ' filled';
                         }
                         
@@ -906,7 +969,7 @@
                             cellContent += '<br><small style="color: #3498db;">📝</small>';
                         }
                         
-                        html += `<td class="${cellClass}" onclick="window.openModal(${company.id}, '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
+                        html += `<td class="${cellClass}" onclick="window.openModal('${company.id}', '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
                     }
                     
                     html += `</tr>`;
@@ -1086,6 +1149,11 @@
             }
         });
         
+        // Eventi per il modal di fill all
+        document.getElementById('confirmFillAllBtn').onclick = confirmFillAllDays;
+        window.openFillAllModal = openFillAllModal;
+        window.closeFillAllModal = closeFillAllModal;
+
         // Esponi solo le funzioni necessarie
         window.updateCalendar = updateCalendar;
         window.exportToExcel = exportToExcel;
