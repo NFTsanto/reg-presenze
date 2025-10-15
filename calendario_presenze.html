@@ -40,6 +40,23 @@
             margin-bottom: 10px;
         }
         
+        .sync-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .sync-status.synced {
+            background: #28a745;
+        }
+        
+        .sync-status.syncing {
+            background: #ffc107;
+        }
+        
         .controls {
             padding: 20px 30px;
             background: #f8f9fa;
@@ -336,13 +353,60 @@
             cursor: pointer;
             font-size: 11px;
         }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Caricamento dati...</p>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>📅 Gestione Presenze Dipendenti</h1>
-            <p>Sistema completo per la gestione delle presenze con esportazione Excel</p>
+            <p>Sistema completo per la gestione delle presenze con sincronizzazione cloud</p>
+            <div class="sync-status" id="syncStatus">🔄 Connessione in corso...</div>
         </div>
         
         <div class="controls">
@@ -371,9 +435,6 @@
             <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
             <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
             <button class="btn" style="background: #dc3545; color: white; font-weight: bold;" onclick="resetMonthPresences()">❗ Svuota mese corrente</button>
-            <button class="btn" style="background: #343a40; color: #fff; font-weight: bold;" onclick="backupData()">💾 Backup Dati</button>
-            <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(event)">
-            <button class="btn" style="background: #17a2b8; color: #fff; font-weight: bold;" onclick="document.getElementById('restoreInput').click()">📂 Ripristina Dati</button>
         </div>
         
         <div id="manageSection" class="manage-section" style="display: none;">
@@ -410,40 +471,124 @@
         </div>
     </div>
     
-    <script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Configurazione Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAB68aGlLPg_mP40Gxz4d7rQ3lpOL96LJM",
+            authDomain: "registro-presenze-bb049.firebaseapp.com",
+            projectId: "registro-presenze-bb049",
+            storageBucket: "registro-presenze-bb049.firebasestorage.app",
+            messagingSenderId: "117257368343",
+            appId: "1:117257368343:web:c4fde2d997d81f393e7d52"
+        };
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         // Struttura dati
         let companies = [];
         let presences = {};
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let currentEditCell = null;
-        
-        // Carica dati salvati
-        function loadData() {
-            const savedCompanies = localStorage.getItem('companies');
-            const savedPresences = localStorage.getItem('presences');
-            
-            if (savedCompanies) {
-                companies = JSON.parse(savedCompanies);
-            } else {
-                // Dati di esempio
-                companies = [
-                    {id: 1, name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"]},
-                    {id: 2, name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"]},
-                    {id: 3, name: "Azienda Gamma", employees: ["Sara Gialli"]}
-                ];
-            }
-            
-            if (savedPresences) {
-                presences = JSON.parse(savedPresences);
+
+        // Funzioni per aggiornare lo stato di sincronizzazione
+        function updateSyncStatus(status, message) {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.className = 'sync-status ' + status;
+            statusEl.textContent = message;
+        }
+
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.className = 'loading-overlay' + (show ? ' active' : '');
+        }
+
+        // Carica dati da Firebase
+        async function loadData() {
+            try {
+                showLoading(true);
+                updateSyncStatus('syncing', '🔄 Sincronizzazione...');
+
+                // Carica aziende
+                const companiesSnapshot = await getDocs(collection(db, 'companies'));
+                companies = [];
+                companiesSnapshot.forEach((doc) => {
+                    companies.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Se non ci sono aziende, crea dati di esempio
+                if (companies.length === 0) {
+                    await createSampleData();
+                }
+
+                // Carica presenze
+                const presencesSnapshot = await getDocs(collection(db, 'presences'));
+                presences = {};
+                presencesSnapshot.forEach((doc) => {
+                    presences[doc.id] = doc.data();
+                });
+
+                updateSyncStatus('synced', '✅ Sincronizzato');
+                showLoading(false);
+            } catch (error) {
+                console.error("Errore nel caricamento dei dati:", error);
+                updateSyncStatus('error', '❌ Errore di sincronizzazione');
+                showLoading(false);
+                alert('Errore nel caricamento dei dati: ' + error.message);
             }
         }
-        
-        function saveData() {
-            localStorage.setItem('companies', JSON.stringify(companies));
-            localStorage.setItem('presences', JSON.stringify(presences));
+
+        // Crea dati di esempio
+        async function createSampleData() {
+            const sampleCompanies = [
+                { id: '1', name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"] },
+                { id: '2', name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"] },
+                { id: '3', name: "Azienda Gamma", employees: ["Sara Gialli"] }
+            ];
+
+            for (const company of sampleCompanies) {
+                await setDoc(doc(db, 'companies', company.id), {
+                    name: company.name,
+                    employees: company.employees
+                });
+            }
+
+            companies = sampleCompanies;
         }
-        
+
+        // Salva aziende su Firebase
+        async function saveCompany(company) {
+            try {
+                updateSyncStatus('syncing', '🔄 Salvataggio...');
+                await setDoc(doc(db, 'companies', company.id.toString()), {
+                    name: company.name,
+                    employees: company.employees
+                });
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nel salvataggio dell'azienda:", error);
+                updateSyncStatus('error', '❌ Errore di salvataggio');
+                alert('Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        // Elimina azienda da Firebase
+        async function deleteCompanyFromDB(companyId) {
+            try {
+                updateSyncStatus('syncing', '🔄 Eliminazione...');
+                await deleteDoc(doc(db, 'companies', companyId.toString()));
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nell'eliminazione dell'azienda:", error);
+                updateSyncStatus('error', '❌ Errore di eliminazione');
+            }
+        }
+
         function getDaysInMonth(month, year) {
             return new Date(year, month + 1, 0).getDate();
         }
@@ -463,10 +608,18 @@
             return `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`;
         }
         
-        function setPresence(companyId, employee, day, value, overtime = '', notes = '') {
+        async function setPresence(companyId, employee, day, value, overtime = '', notes = '') {
             const key = getPresenceKey(companyId, employee, day);
             presences[key] = { value, overtime, notes };
-            saveData();
+            
+            try {
+                updateSyncStatus('syncing', '🔄 Salvataggio...');
+                await setDoc(doc(db, 'presences', key), { value, overtime, notes });
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nel salvataggio della presenza:", error);
+                updateSyncStatus('error', '❌ Errore di salvataggio');
+            }
         }
         
         function getPresence(companyId, employee, day) {
@@ -474,11 +627,13 @@
             return presences[key] || { value: '', overtime: '', notes: '' };
         }
         
-        function fillAllDays(companyId, employee) {
+        async function fillAllDays(companyId, employee) {
             const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            updateSyncStatus('syncing', '🔄 Compilazione in corso...');
+            
             for (let day = 1; day <= daysInMonth; day++) {
-                if (!isWeekend(day, currentMonth, currentYear)) { // Salta sabato e domenica
-                    setPresence(companyId, employee, day, '8');
+                if (!isWeekend(day, currentMonth, currentYear)) {
+                    await setPresence(companyId, employee, day, '8');
                 }
             }
             updateCalendar();
@@ -488,7 +643,6 @@
             currentEditCell = {companyId, employee, day};
             const modal = document.getElementById('modal');
             const modalContent = document.getElementById('modalContent');
-            const currentValue = getPresence(companyId, employee, day);
             
             const presence = getPresence(companyId, employee, day);
             modalContent.innerHTML = `
@@ -510,11 +664,11 @@
                            placeholder="Inserisci una nota...">
                 </div>
                 <div class="modal-buttons">
-                    <button class="modal-btn btn-success" onclick="saveHours()">Salva Ore</button>
-                    <button class="modal-btn btn-warning" onclick="saveFerie()">Ferie (F)</button>
-                    <button class="modal-btn btn-warning" onclick="saveMutua()">Mutua (M)</button>
-                    <button class="modal-btn btn-primary" onclick="clearDay()">Azzera</button>
-                    <button class="modal-btn" style="background: #6c757d; color: white;" onclick="closeModal()">Annulla</button>
+                    <button class="modal-btn btn-success" onclick="window.saveHours()">Salva Ore</button>
+                    <button class="modal-btn btn-warning" onclick="window.saveFerie()">Ferie (F)</button>
+                    <button class="modal-btn btn-warning" onclick="window.saveMutua()">Mutua (M)</button>
+                    <button class="modal-btn btn-primary" onclick="window.clearDay()">Azzera</button>
+                    <button class="modal-btn" style="background: #6c757d; color: white;" onclick="window.closeModal()">Annulla</button>
                 </div>
             `;
             
@@ -526,38 +680,38 @@
             currentEditCell = null;
         }
         
-        function saveHours() {
+        async function saveHours() {
             const hours = document.getElementById('hoursInput').value;
             const overtime = document.getElementById('overtimeInput').value;
             const notes = document.getElementById('notesInput').value;
             if (hours && currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
+                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
                 updateCalendar();
                 closeModal();
             }
         }
         
-        function saveFerie() {
+        async function saveFerie() {
             if (currentEditCell) {
                 const notes = document.getElementById('notesInput').value;
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
+                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
                 updateCalendar();
                 closeModal();
             }
         }
         
-        function saveMutua() {
+        async function saveMutua() {
             if (currentEditCell) {
                 const notes = document.getElementById('notesInput').value;
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
+                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
                 updateCalendar();
                 closeModal();
             }
         }
         
-        function clearDay() {
+        async function clearDay() {
             if (currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
+                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
                 updateCalendar();
                 closeModal();
             }
@@ -601,7 +755,7 @@
                     html += `
                         <tr>
                             <td class="employee-name">${employee}</td>
-                            <td><button class="btn btn-primary fill-all-btn" onclick="fillAllDays(${company.id}, '${employee}')">Compila tutto con 8h</button></td>
+                            <td><button class="btn btn-primary fill-all-btn" onclick="window.fillAllDays(${company.id}, '${employee}')">Compila tutto con 8h</button></td>
                     `;
                     
                     for (let day = 1; day <= daysInMonth; day++) {
@@ -624,7 +778,7 @@
                             cellContent += '<br><small style="color: #3498db;">📝</small>';
                         }
                         
-                        html += `<td class="${cellClass}" onclick="openModal(${company.id}, '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
+                        html += `<td class="${cellClass}" onclick="window.openModal(${company.id}, '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
                     }
                     
                     html += `</tr>`;
@@ -650,7 +804,6 @@
                 const daysInMonth = getDaysInMonth(currentMonth, currentYear);
                 const data = [];
                 
-                // Header
                 const headerRow = ['Dipendente'];
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dayName = getDayName(day, currentMonth, currentYear);
@@ -660,7 +813,6 @@
                 }
                 data.push(headerRow);
                 
-                // Employees data
                 company.employees.forEach(employee => {
                     const row = [employee];
                     for (let day = 1; day <= daysInMonth; day++) {
@@ -689,12 +841,13 @@
             }
         }
         
-        function addCompany() {
+        async function addCompany() {
             const name = document.getElementById('companyNameInput').value.trim();
             if (name) {
-                const newId = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
-                companies.push({id: newId, name: name, employees: []});
-                saveData();
+                const newId = companies.length > 0 ? Math.max(...companies.map(c => parseInt(c.id))) + 1 : 1;
+                const newCompany = {id: newId.toString(), name: name, employees: []};
+                companies.push(newCompany);
+                await saveCompany(newCompany);
                 document.getElementById('companyNameInput').value = '';
                 updateCompanySelect();
                 updateCompaniesList();
@@ -702,15 +855,15 @@
             }
         }
         
-        function addEmployee() {
-            const companyId = parseInt(document.getElementById('companySelectForEmployee').value);
+        async function addEmployee() {
+            const companyId = document.getElementById('companySelectForEmployee').value;
             const name = document.getElementById('employeeNameInput').value.trim();
             
             if (companyId && name) {
                 const company = companies.find(c => c.id === companyId);
                 if (company) {
                     company.employees.push(name);
-                    saveData();
+                    await saveCompany(company);
                     document.getElementById('employeeNameInput').value = '';
                     updateCompaniesList();
                     updateCalendar();
@@ -718,20 +871,20 @@
             }
         }
         
-        function removeEmployee(companyId, employeeName) {
+        async function removeEmployee(companyId, employeeName) {
             const company = companies.find(c => c.id === companyId);
             if (company) {
                 company.employees = company.employees.filter(e => e !== employeeName);
-                saveData();
+                await saveCompany(company);
                 updateCompaniesList();
                 updateCalendar();
             }
         }
         
-        function removeCompany(companyId) {
+        async function removeCompany(companyId) {
             if (confirm('Sei sicuro di voler eliminare questa azienda e tutti i suoi dipendenti?')) {
                 companies = companies.filter(c => c.id !== companyId);
-                saveData();
+                await deleteCompanyFromDB(companyId);
                 updateCompanySelect();
                 updateCompaniesList();
                 updateCalendar();
@@ -757,13 +910,13 @@
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h4>${company.name}</h4>
                         <button class="btn" style="background: #dc3545; color: white; padding: 5px 10px; font-size: 12px;" 
-                                onclick="removeCompany(${company.id})">Elimina Azienda</button>
+                                onclick="window.removeCompany('${company.id}')">Elimina Azienda</button>
                     </div>
                     <div class="employee-list">
                         ${company.employees.map(emp => `
                             <div class="employee-tag">
                                 ${emp}
-                                <button onclick="removeEmployee(${company.id}, '${emp}')">×</button>
+                                <button onclick="window.removeEmployee('${company.id}', '${emp}')">×</button>
                             </div>
                         `).join('') || '<p style="color: #6c757d; font-size: 12px;">Nessun dipendente</p>'}
                     </div>
@@ -772,76 +925,32 @@
             });
         }
         
-        function resetMonthPresences() {
+        async function resetMonthPresences() {
             if (!confirm('ATTENZIONE: Questa operazione cancellerà tutte le presenze del mese corrente per tutte le aziende e dipendenti. Sei sicuro di voler continuare?')) {
                 return;
             }
-            // Rimuovi tutte le presenze del mese corrente
+            
+            updateSyncStatus('syncing', '🔄 Eliminazione in corso...');
             const keysToDelete = [];
             for (const key in presences) {
-                // Chiave: `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`
                 if (key.startsWith(`${currentYear}-${currentMonth}-`)) {
                     keysToDelete.push(key);
                 }
             }
-            keysToDelete.forEach(key => delete presences[key]);
-            saveData();
+            
+            for (const key of keysToDelete) {
+                try {
+                    await deleteDoc(doc(db, 'presences', key));
+                    delete presences[key];
+                } catch (error) {
+                    console.error("Errore nell'eliminazione della presenza:", error);
+                }
+            }
+            
+            updateSyncStatus('synced', '✅ Sincronizzato');
             updateCalendar();
         }
-
-        function backupData() {
-            const data = {
-                companies,
-                presences
-            };
-            const json = JSON.stringify(data, null, 2);
-            const blob = new Blob([json], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const h = String(now.getHours()).padStart(2, '0');
-            const min = String(now.getMinutes()).padStart(2, '0');
-            a.download = `presenze-backup_${y}${m}${d}_${h}${min}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function restoreData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (!data || typeof data !== 'object' || !Array.isArray(data.companies) || typeof data.presences !== 'object') {
-                        alert('File di backup non valido.');
-                        return;
-                    }
-                    if (!confirm('Ripristinare i dati sovrascriverà tutte le aziende e presenze attuali. Continuare?')) {
-                        return;
-                    }
-                    companies = data.companies;
-                    presences = data.presences;
-                    saveData();
-                    updateCompanySelect();
-                    updateCompaniesList();
-                    updateCalendar();
-                    alert('Dati ripristinati con successo!');
-                } catch (err) {
-                    alert('Errore nel caricamento del backup: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
-            // Reset input per permettere nuovo upload dello stesso file se necessario
-            event.target.value = '';
-        }
-
+        
         // Chiudi modal cliccando fuori
         document.getElementById('modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -849,11 +958,29 @@
             }
         });
         
+        // Esponi le funzioni globalmente per permettere l'accesso dagli eventi onclick
+        window.updateCalendar = updateCalendar;
+        window.exportToExcel = exportToExcel;
+        window.toggleManage = toggleManage;
+        window.addCompany = addCompany;
+        window.addEmployee = addEmployee;
+        window.removeEmployee = removeEmployee;
+        window.removeCompany = removeCompany;
+        window.resetMonthPresences = resetMonthPresences;
+        window.fillAllDays = fillAllDays;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.saveHours = saveHours;
+        window.saveFerie = saveFerie;
+        window.saveMutua = saveMutua;
+        window.clearDay = clearDay;
+        
         // Inizializzazione
-        loadData();
-        document.getElementById('monthSelect').value = currentMonth;
-        document.getElementById('yearInput').value = currentYear;
-        updateCalendar();
-    </script>
-</body>
-</html>
+        async function init() {
+            await loadData();
+            document.getElementById('monthSelect').value = currentMonth;
+            document.getElementById('yearInput').value = currentYear;
+            updateCalendar();
+        }
+        
+        init();

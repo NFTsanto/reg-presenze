@@ -1,16 +1,12 @@
+//Backup 
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Presenze Dipendenti - Cloud</title>
+    <title>Gestione Presenze Dipendenti</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
     <style>
         * {
             margin: 0;
@@ -39,101 +35,11 @@
             color: white;
             padding: 30px;
             text-align: center;
-            position: relative;
         }
         
         .header h1 {
             font-size: 2em;
             margin-bottom: 10px;
-        }
-        
-        .header .cloud-badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-        
-        .user-info {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255,255,255,0.2);
-            padding: 10px 15px;
-            border-radius: 8px;
-        }
-        
-        .user-info button {
-            background: rgba(255,255,255,0.3);
-            border: none;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        
-        .login-container h2 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 30px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #495057;
-            font-weight: 600;
-        }
-        
-        .form-group input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-        
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 14px;
         }
         
         .controls {
@@ -174,17 +80,12 @@
             font-size: 14px;
         }
         
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
         .btn-primary {
             background: #667eea;
             color: white;
         }
         
-        .btn-primary:hover:not(:disabled) {
+        .btn-primary:hover {
             background: #5568d3;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
@@ -195,7 +96,7 @@
             color: white;
         }
         
-        .btn-success:hover:not(:disabled) {
+        .btn-success:hover {
             background: #218838;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
@@ -206,23 +107,8 @@
             color: #212529;
         }
         
-        .btn-warning:hover:not(:disabled) {
+        .btn-warning:hover {
             background: #e0a800;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-danger:hover:not(:disabled) {
-            background: #c82333;
-        }
-        
-        .btn-full {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
         }
         
         .content {
@@ -289,11 +175,21 @@
             cursor: pointer;
             transition: all 0.2s;
             min-width: 50px;
+            font-size: 14px;
+            line-height: 1.3;
+            vertical-align: middle;
+            padding: 8px 4px;
         }
         
         .day-cell:hover {
             background: #e7f1ff;
             transform: scale(1.05);
+        }
+        
+        .day-cell small {
+            font-size: 11px;
+            display: block;
+            margin-top: 2px;
         }
         
         .day-cell.filled {
@@ -442,188 +338,71 @@
             cursor: pointer;
             font-size: 11px;
         }
-        
-        .loading {
-            text-align: center;
-            padding: 50px;
-            color: #6c757d;
-        }
-        
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .setup-instructions {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px;
-        }
-        
-        .setup-instructions h3 {
-            color: #856404;
-            margin-bottom: 15px;
-        }
-        
-        .setup-instructions ol {
-            margin-left: 20px;
-        }
-        
-        .setup-instructions li {
-            margin-bottom: 10px;
-            color: #856404;
-        }
-        
-        .setup-instructions code {
-            background: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
-            color: #c7254e;
-        }
-        
-        .hidden {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
-    <!-- Setup Instructions (visible only when Firebase is not configured) -->
-    <div id="setupInstructions" class="setup-instructions hidden">
-        <h3>⚙️ Configurazione Firebase necessaria</h3>
-        <p><strong>Per attivare il database cloud, segui questi passi:</strong></p>
-        <ol>
-            <li>Vai su <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
-            <li>Crea un nuovo progetto (es: "presenze-dipendenti")</li>
-            <li>Aggiungi un'app Web (</>) e copia la configurazione</li>
-            <li>Attiva <strong>Realtime Database</strong> in modalità test</li>
-            <li>Attiva <strong>Authentication</strong> con Email/Password</li>
-            <li>Sostituisci la configurazione nel codice (riga ~450) con i tuoi dati</li>
-        </ol>
-        <p><strong>ATTENZIONE:</strong> Attualmente l'app usa dati locali. Configura Firebase per il cloud!</p>
-    </div>
-
-    <!-- Login Screen -->
-    <div id="loginScreen" class="hidden">
-        <div class="login-container">
-            <h2>🔐 Accesso Sistema Presenze</h2>
-            <div id="loginMessage"></div>
-            
-            <div id="loginForm">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="loginEmail" placeholder="nome@azienda.it">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" placeholder="••••••••">
-                </div>
-                <button class="btn btn-primary btn-full" onclick="login()">Accedi</button>
-                <button class="btn btn-success btn-full" onclick="showRegister()" style="margin-top: 10px;">Registrati</button>
-            </div>
-            
-            <div id="registerForm" class="hidden">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="registerEmail" placeholder="nome@azienda.it">
-                </div>
-                <div class="form-group">
-                    <label>Password (min 6 caratteri)</label>
-                    <input type="password" id="registerPassword" placeholder="••••••••">
-                </div>
-                <div class="form-group">
-                    <label>Conferma Password</label>
-                    <input type="password" id="registerPasswordConfirm" placeholder="••••••••">
-                </div>
-                <button class="btn btn-success btn-full" onclick="register()">Crea Account</button>
-                <button class="btn btn-warning btn-full" onclick="showLogin()" style="margin-top: 10px;">Torna al Login</button>
-            </div>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Gestione Presenze Dipendenti</h1>
+            <p>Sistema completo per la gestione delle presenze con esportazione Excel</p>
         </div>
-    </div>
-
-    <!-- Main App -->
-    <div id="appContainer" class="hidden">
-        <div class="container">
-            <div class="header">
-                <div class="user-info">
-                    <span id="userEmail">utente@email.com</span>
-                    <button onclick="logout()">Esci</button>
-                </div>
-                <h1>📅 Gestione Presenze Dipendenti</h1>
-                <p>Sistema cloud condiviso per la gestione delle presenze</p>
-                <div class="cloud-badge">☁️ Dati sincronizzati in tempo reale</div>
+        
+        <div class="controls">
+            <div>
+                <label>Mese:</label>
+                <select id="monthSelect">
+                    <option value="0">Gennaio</option>
+                    <option value="1">Febbraio</option>
+                    <option value="2">Marzo</option>
+                    <option value="3">Aprile</option>
+                    <option value="4">Maggio</option>
+                    <option value="5">Giugno</option>
+                    <option value="6">Luglio</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Settembre</option>
+                    <option value="9">Ottobre</option>
+                    <option value="10">Novembre</option>
+                    <option value="11">Dicembre</option>
+                </select>
             </div>
-            
-            <div class="controls">
-                <div>
-                    <label>Mese:</label>
-                    <select id="monthSelect">
-                        <option value="0">Gennaio</option>
-                        <option value="1">Febbraio</option>
-                        <option value="2">Marzo</option>
-                        <option value="3">Aprile</option>
-                        <option value="4">Maggio</option>
-                        <option value="5">Giugno</option>
-                        <option value="6">Luglio</option>
-                        <option value="7">Agosto</option>
-                        <option value="8">Settembre</option>
-                        <option value="9">Ottobre</option>
-                        <option value="10">Novembre</option>
-                        <option value="11">Dicembre</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Anno:</label>
-                    <input type="number" id="yearInput" value="2025" min="2020" max="2030">
-                </div>
-                <button class="btn btn-primary" onclick="updateCalendar()">Aggiorna Calendario</button>
-                <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
-                <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
+            <div>
+                <label>Anno:</label>
+                <input type="number" id="yearInput" value="2025" min="2020" max="2030">
             </div>
+            <button class="btn btn-primary" onclick="updateCalendar()">Aggiorna Calendario</button>
+            <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
+            <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
+            <button class="btn" style="background: #dc3545; color: white; font-weight: bold;" onclick="resetMonthPresences()">❗ Svuota mese corrente</button>
+            <button class="btn" style="background: #343a40; color: #fff; font-weight: bold;" onclick="backupData()">💾 Backup Dati</button>
+            <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(event)">
+            <button class="btn" style="background: #17a2b8; color: #fff; font-weight: bold;" onclick="document.getElementById('restoreInput').click()">📂 Ripristina Dati</button>
+        </div>
+        
+        <div id="manageSection" class="manage-section" style="display: none;">
+            <h3>Gestione Aziende e Dipendenti</h3>
             
-            <div id="manageSection" class="manage-section hidden">
-                <h3>Gestione Aziende e Dipendenti</h3>
-                
+            <div class="input-group">
+                <label>Nome Azienda:</label>
+                <input type="text" id="companyNameInput" placeholder="Es: Azienda Alfa">
+            </div>
+            <button class="btn btn-primary" onclick="addCompany()">Aggiungi Azienda</button>
+            
+            <div style="margin-top: 20px;">
                 <div class="input-group">
-                    <label>Nome Azienda:</label>
-                    <input type="text" id="companyNameInput" placeholder="Es: Azienda Alfa">
+                    <label>Seleziona Azienda:</label>
+                    <select id="companySelectForEmployee"></select>
                 </div>
-                <button class="btn btn-primary" onclick="addCompany()">Aggiungi Azienda</button>
-                
-                <div style="margin-top: 20px;">
-                    <div class="input-group">
-                        <label>Seleziona Azienda:</label>
-                        <select id="companySelectForEmployee"></select>
-                    </div>
-                    <div class="input-group">
-                        <label>Nome Dipendente:</label>
-                        <input type="text" id="employeeNameInput" placeholder="Es: Mario Rossi">
-                    </div>
-                    <button class="btn btn-primary" onclick="addEmployee()">Aggiungi Dipendente</button>
+                <div class="input-group">
+                    <label>Nome Dipendente:</label>
+                    <input type="text" id="employeeNameInput" placeholder="Es: Mario Rossi">
                 </div>
-                
-                <div id="companiesList" class="company-list" style="margin-top: 20px;"></div>
+                <button class="btn btn-primary" onclick="addEmployee()">Aggiungi Dipendente</button>
             </div>
             
-            <div id="loadingIndicator" class="loading">
-                <div class="loading-spinner"></div>
-                <p>Caricamento dati...</p>
-            </div>
-            
-            <div class="content" id="calendarContent"></div>
+            <div id="companiesList" class="company-list" style="margin-top: 20px;"></div>
         </div>
+        
+        <div class="content" id="calendarContent"></div>
     </div>
     
     <div id="modal" class="modal">
@@ -634,84 +413,22 @@
     </div>
     
     <script>
-        // Firebase Configuration - SOSTITUISCI CON I TUOI DATI
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        
-        // Variabili globali
-        let app, auth, database;
-        let currentUser = null;
+        // Struttura dati
         let companies = [];
         let presences = {};
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let currentEditCell = null;
-        let isFirebaseConfigured = false;
         
-        // Inizializza Firebase
-        function initFirebase() {
-            try {
-                // Controlla se la configurazione è valida
-                if (firebaseConfig.apiKey === "YOUR_API_KEY") {
-                    console.warn("Firebase non configurato - usando localStorage");
-                    document.getElementById('setupInstructions').classList.remove('hidden');
-                    isFirebaseConfigured = false;
-                    // Usa localStorage come fallback
-                    initLocalMode();
-                    return;
-                }
-                
-                app = firebase.initializeApp(firebaseConfig);
-                auth = firebase.auth();
-                database = firebase.database();
-                isFirebaseConfigured = true;
-                
-                // Listener per cambiamenti autenticazione
-                auth.onAuthStateChanged(user => {
-                    if (user) {
-                        currentUser = user;
-                        document.getElementById('loginScreen').classList.add('hidden');
-                        document.getElementById('appContainer').classList.remove('hidden');
-                        document.getElementById('userEmail').textContent = user.email;
-                        loadDataFromFirebase();
-                    } else {
-                        currentUser = null;
-                        document.getElementById('loginScreen').classList.remove('hidden');
-                        document.getElementById('appContainer').classList.add('hidden');
-                    }
-                });
-            } catch (error) {
-                console.error("Errore inizializzazione Firebase:", error);
-                document.getElementById('setupInstructions').classList.remove('hidden');
-                initLocalMode();
-            }
-        }
-        
-        // Modalità locale (localStorage)
-        function initLocalMode() {
-            isFirebaseConfigured = false;
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('appContainer').classList.remove('hidden');
-            document.getElementById('userEmail').textContent = 'Modalità Locale';
-            loadDataFromLocalStorage();
-            document.getElementById('loadingIndicator').classList.add('hidden');
-        }
-        
-        // Carica dati da localStorage
-        function loadDataFromLocalStorage() {
+        // Carica dati salvati
+        function loadData() {
             const savedCompanies = localStorage.getItem('companies');
             const savedPresences = localStorage.getItem('presences');
             
             if (savedCompanies) {
                 companies = JSON.parse(savedCompanies);
             } else {
+                // Dati di esempio
                 companies = [
                     {id: 1, name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"]},
                     {id: 2, name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"]},
@@ -722,130 +439,13 @@
             if (savedPresences) {
                 presences = JSON.parse(savedPresences);
             }
-            
-            updateCalendar();
-            document.getElementById('loadingIndicator').classList.add('hidden');
         }
         
-        // Salva dati in localStorage
-        function saveDataToLocalStorage() {
+        function saveData() {
             localStorage.setItem('companies', JSON.stringify(companies));
             localStorage.setItem('presences', JSON.stringify(presences));
         }
         
-        // Login
-        function login() {
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            
-            if (!isFirebaseConfigured) {
-                showMessage('loginMessage', 'Firebase non configurato', 'error');
-                return;
-            }
-            
-            auth.signInWithEmailAndPassword(email, password)
-                .catch(error => {
-                    showMessage('loginMessage', 'Errore: ' + error.message, 'error');
-                });
-        }
-        
-        // Registrazione
-        function register() {
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerPasswordConfirm').value;
-            
-            if (!isFirebaseConfigured) {
-                showMessage('loginMessage', 'Firebase non configurato', 'error');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                showMessage('loginMessage', 'Le password non corrispondono', 'error');
-                return;
-            }
-            
-            if (password.length < 6) {
-                showMessage('loginMessage', 'La password deve essere di almeno 6 caratteri', 'error');
-                return;
-            }
-            
-            auth.createUserWithEmailAndPassword(email, password)
-                .then(() => {
-                    showMessage('loginMessage', 'Account creato con successo!', 'success');
-                    setTimeout(() => showLogin(), 2000);
-                })
-                .catch(error => {
-                    showMessage('loginMessage', 'Errore: ' + error.message, 'error');
-                });
-        }
-        
-        // Logout
-        function logout() {
-            if (isFirebaseConfigured) {
-                auth.signOut();
-            } else {
-                location.reload();
-            }
-        }
-        
-        // Mostra/nascondi form
-        function showRegister() {
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('registerForm').classList.remove('hidden');
-            document.getElementById('loginMessage').innerHTML = '';
-        }
-        
-        function showLogin() {
-            document.getElementById('loginForm').classList.remove('hidden');
-            document.getElementById('registerForm').classList.add('hidden');
-            document.getElementById('loginMessage').innerHTML = '';
-        }
-        
-        // Mostra messaggi
-        function showMessage(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            const className = type === 'error' ? 'error-message' : 'success-message';
-            element.innerHTML = `<div class="${className}">${message}</div>`;
-        }
-        
-        // Carica dati da Firebase
-        function loadDataFromFirebase() {
-            document.getElementById('loadingIndicator').classList.remove('hidden');
-            
-            // Carica aziende
-            database.ref('companies').on('value', snapshot => {
-                const data = snapshot.val();
-                companies = data ? Object.values(data) : [];
-                updateCalendar();
-                document.getElementById('loadingIndicator').classList.add('hidden');
-            });
-            
-            // Carica presenze
-            database.ref('presences').on('value', snapshot => {
-                const data = snapshot.val();
-                presences = data || {};
-                updateCalendar();
-            });
-        }
-        
-        // Salva dati su Firebase
-        function saveDataToFirebase() {
-            if (!isFirebaseConfigured || !currentUser) {
-                saveDataToLocalStorage();
-                return;
-            }
-            
-            const companiesObj = {};
-            companies.forEach(c => {
-                companiesObj[c.id] = c;
-            });
-            
-            database.ref('companies').set(companiesObj);
-            database.ref('presences').set(presences);
-        }
-        
-        // Funzioni calendario (identiche alla versione precedente)
         function getDaysInMonth(month, year) {
             return new Date(year, month + 1, 0).getDate();
         }
@@ -865,22 +465,25 @@
             return `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`;
         }
         
-        function setPresence(companyId, employee, day, value) {
+        function setPresence(companyId, employee, day, value, overtime = '', notes = '') {
             const key = getPresenceKey(companyId, employee, day);
-            presences[key] = value;
-            saveDataToFirebase();
+            presences[key] = { value, overtime, notes };
+            saveData();
         }
         
         function getPresence(companyId, employee, day) {
             const key = getPresenceKey(companyId, employee, day);
-            return presences[key] || '';
+            return presences[key] || { value: '', overtime: '', notes: '' };
         }
         
         function fillAllDays(companyId, employee) {
             const daysInMonth = getDaysInMonth(currentMonth, currentYear);
             for (let day = 1; day <= daysInMonth; day++) {
-                setPresence(companyId, employee, day, '8');
+                if (!isWeekend(day, currentMonth, currentYear)) { // Salta sabato e domenica
+                    setPresence(companyId, employee, day, '8');
+                }
             }
+            updateCalendar();
         }
         
         function openModal(companyId, employee, day) {
@@ -889,13 +492,24 @@
             const modalContent = document.getElementById('modalContent');
             const currentValue = getPresence(companyId, employee, day);
             
+            const presence = getPresence(companyId, employee, day);
             modalContent.innerHTML = `
                 <p><strong>Dipendente:</strong> ${employee}</p>
                 <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>
                 <div class="input-group">
                     <label>Ore lavorate:</label>
-                    <input type="number" id="hoursInput" value="${currentValue === 'F' || currentValue === 'M' ? '' : currentValue}" 
+                    <input type="number" id="hoursInput" value="${presence.value === 'F' || presence.value === 'M' ? '' : presence.value}" 
                            placeholder="Es: 8" min="0" max="24" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Ore straordinarie:</label>
+                    <input type="number" id="overtimeInput" value="${presence.overtime}" 
+                           placeholder="Es: 2" min="0" max="12" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Note:</label>
+                    <input type="text" id="notesInput" value="${presence.notes}" 
+                           placeholder="Inserisci una nota...">
                 </div>
                 <div class="modal-buttons">
                     <button class="modal-btn btn-success" onclick="saveHours()">Salva Ore</button>
@@ -916,29 +530,37 @@
         
         function saveHours() {
             const hours = document.getElementById('hoursInput').value;
+            const overtime = document.getElementById('overtimeInput').value;
+            const notes = document.getElementById('notesInput').value;
             if (hours && currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours);
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
+                updateCalendar();
                 closeModal();
             }
         }
         
         function saveFerie() {
             if (currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F');
+                const notes = document.getElementById('notesInput').value;
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
+                updateCalendar();
                 closeModal();
             }
         }
         
         function saveMutua() {
             if (currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M');
+                const notes = document.getElementById('notesInput').value;
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
+                updateCalendar();
                 closeModal();
             }
         }
         
         function clearDay() {
             if (currentEditCell) {
-                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '');
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
+                updateCalendar();
                 closeModal();
             }
         }
@@ -985,18 +607,26 @@
                     `;
                     
                     for (let day = 1; day <= daysInMonth; day++) {
-                        const value = getPresence(company.id, employee, day);
+                        const presence = getPresence(company.id, employee, day);
                         const isWeekendDay = isWeekend(day, currentMonth, currentYear);
                         let cellClass = 'day-cell';
                         
                         if (isWeekendDay) cellClass += ' weekend';
-                        if (value) {
-                            if (value === 'F') cellClass += ' ferie';
-                            else if (value === 'M') cellClass += ' mutua';
+                        if (presence.value) {
+                            if (presence.value === 'F') cellClass += ' ferie';
+                            else if (presence.value === 'M') cellClass += ' mutua';
                             else cellClass += ' filled';
                         }
                         
-                        html += `<td class="${cellClass}" onclick="openModal(${company.id}, '${employee}', ${day})">${value}</td>`;
+                        let cellContent = presence.value;
+                        if (presence.overtime) {
+                            cellContent += `<br><small style="color: #e67e22;">+${presence.overtime}h</small>`;
+                        }
+                        if (presence.notes) {
+                            cellContent += '<br><small style="color: #3498db;">📝</small>';
+                        }
+                        
+                        html += `<td class="${cellClass}" onclick="openModal(${company.id}, '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
                     }
                     
                     html += `</tr>`;
@@ -1027,6 +657,8 @@
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dayName = getDayName(day, currentMonth, currentYear);
                     headerRow.push(`${day} ${dayName}`);
+                    headerRow.push(`${day} Straord.`);
+                    headerRow.push(`${day} Note`);
                 }
                 data.push(headerRow);
                 
@@ -1034,8 +666,10 @@
                 company.employees.forEach(employee => {
                     const row = [employee];
                     for (let day = 1; day <= daysInMonth; day++) {
-                        const value = getPresence(company.id, employee, day);
-                        row.push(value || '');
+                        const presence = getPresence(company.id, employee, day);
+                        row.push(presence.value || '');
+                        row.push(presence.overtime || '');
+                        row.push(presence.notes || '');
                     }
                     data.push(row);
                 });
@@ -1050,8 +684,8 @@
         
         function toggleManage() {
             const section = document.getElementById('manageSection');
-            section.classList.toggle('hidden');
-            if (!section.classList.contains('hidden')) {
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            if (section.style.display === 'block') {
                 updateCompanySelect();
                 updateCompaniesList();
             }
@@ -1062,10 +696,11 @@
             if (name) {
                 const newId = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
                 companies.push({id: newId, name: name, employees: []});
-                saveDataToFirebase();
+                saveData();
                 document.getElementById('companyNameInput').value = '';
                 updateCompanySelect();
                 updateCompaniesList();
+                updateCalendar();
             }
         }
         
@@ -1077,9 +712,10 @@
                 const company = companies.find(c => c.id === companyId);
                 if (company) {
                     company.employees.push(name);
-                    saveDataToFirebase();
+                    saveData();
                     document.getElementById('employeeNameInput').value = '';
                     updateCompaniesList();
+                    updateCalendar();
                 }
             }
         }
@@ -1088,17 +724,19 @@
             const company = companies.find(c => c.id === companyId);
             if (company) {
                 company.employees = company.employees.filter(e => e !== employeeName);
-                saveDataToFirebase();
+                saveData();
                 updateCompaniesList();
+                updateCalendar();
             }
         }
         
         function removeCompany(companyId) {
             if (confirm('Sei sicuro di voler eliminare questa azienda e tutti i suoi dipendenti?')) {
                 companies = companies.filter(c => c.id !== companyId);
-                saveDataToFirebase();
+                saveData();
                 updateCompanySelect();
                 updateCompaniesList();
+                updateCalendar();
             }
         }
         
@@ -1136,6 +774,76 @@
             });
         }
         
+        function resetMonthPresences() {
+            if (!confirm('ATTENZIONE: Questa operazione cancellerà tutte le presenze del mese corrente per tutte le aziende e dipendenti. Sei sicuro di voler continuare?')) {
+                return;
+            }
+            // Rimuovi tutte le presenze del mese corrente
+            const keysToDelete = [];
+            for (const key in presences) {
+                // Chiave: `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`
+                if (key.startsWith(`${currentYear}-${currentMonth}-`)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => delete presences[key]);
+            saveData();
+            updateCalendar();
+        }
+
+        function backupData() {
+            const data = {
+                companies,
+                presences
+            };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const h = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            a.download = `presenze-backup_${y}${m}${d}_${h}${min}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function restoreData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data || typeof data !== 'object' || !Array.isArray(data.companies) || typeof data.presences !== 'object') {
+                        alert('File di backup non valido.');
+                        return;
+                    }
+                    if (!confirm('Ripristinare i dati sovrascriverà tutte le aziende e presenze attuali. Continuare?')) {
+                        return;
+                    }
+                    companies = data.companies;
+                    presences = data.presences;
+                    saveData();
+                    updateCompanySelect();
+                    updateCompaniesList();
+                    updateCalendar();
+                    alert('Dati ripristinati con successo!');
+                } catch (err) {
+                    alert('Errore nel caricamento del backup: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            // Reset input per permettere nuovo upload dello stesso file se necessario
+            event.target.value = '';
+        }
+
         // Chiudi modal cliccando fuori
         document.getElementById('modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -1144,9 +852,10 @@
         });
         
         // Inizializzazione
+        loadData();
         document.getElementById('monthSelect').value = currentMonth;
         document.getElementById('yearInput').value = currentYear;
-        initFirebase();
+        updateCalendar();
     </script>
 </body>
 </html>
