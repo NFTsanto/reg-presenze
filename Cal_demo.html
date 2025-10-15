@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Presenze Dipendenti - Cloud</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .header .cloud-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        
+        .user-info button {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .login-container h2 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .controls label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .controls select, .controls input {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .controls select:focus, .controls input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover:not(:disabled) {
+            background: #e0a800;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+        
+        .btn-full {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 30px;
+            overflow-x: auto;
+        }
+        
+        .company-section {
+            margin-bottom: 40px;
+        }
+        
+        .company-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .company-header h2 {
+            font-size: 1.5em;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .employee-name {
+            text-align: left;
+            font-weight: 600;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+        
+        .day-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 50px;
+        }
+        
+        .day-cell:hover {
+            background: #e7f1ff;
+            transform: scale(1.05);
+        }
+        
+        .day-cell.filled {
+            background: #d4edda;
+            font-weight: 600;
+        }
+        
+        .day-cell.ferie {
+            background: #fff3cd;
+            font-weight: 600;
+        }
+        
+        .day-cell.mutua {
+            background: #f8d7da;
+            font-weight: 600;
+        }
+        
+        .weekend {
+            background: #f1f3f5;
+        }
+        
+        .fill-all-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+        
+        .modal-buttons {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .manage-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .manage-section h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+        
+        .company-list {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .company-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .company-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .employee-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .employee-tag {
+            background: #e7f1ff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .employee-tag button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .setup-instructions {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        
+        .setup-instructions h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+        
+        .setup-instructions ol {
+            margin-left: 20px;
+        }
+        
+        .setup-instructions li {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        
+        .setup-instructions code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #c7254e;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Setup Instructions (visible only when Firebase is not configured) -->
+    <div id="setupInstructions" class="setup-instructions hidden">
+        <h3>⚙️ Configurazione Firebase necessaria</h3>
+        <p><strong>Per attivare il database cloud, segui questi passi:</strong></p>
+        <ol>
+            <li>Vai su <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
+            <li>Crea un nuovo progetto (es: "presenze-dipendenti")</li>
+            <li>Aggiungi un'app Web (</>) e copia la configurazione</li>
+            <li>Attiva <strong>Realtime Database</strong> in modalità test</li>
+            <li>Attiva <strong>Authentication</strong> con Email/Password</li>
+            <li>Sostituisci la configurazione nel codice (riga ~450) con i tuoi dati</li>
+        </ol>
+        <p><strong>ATTENZIONE:</strong> Attualmente l'app usa dati locali. Configura Firebase per il cloud!</p>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="hidden">
+        <div class="login-container">
+            <h2>🔐 Accesso Sistema Presenze</h2>
+            <div id="loginMessage"></div>
+            
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="nome@azienda.it">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="login()">Accedi</button>
+                <button class="btn btn-success btn-full" onclick="showRegister()" style="margin-top: 10px;">Registrati</button>
+            </div>
+            
+            <div id="registerForm" class="hidden">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="registerEmail" placeholder="nome@azienda.it">
+                </div>
+                <div class="form-group">
+                    <label>Password (min 6 caratteri)</label>
+                    <input type="password" id="registerPassword" placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label>Conferma Password</label>
+                    <input type="password" id="registerPasswordConfirm" placeholder="••••••••">
+                </div>
+                <button class="btn btn-success btn-full" onclick="register()">Crea Account</button>
+                <button class="btn btn-warning btn-full" onclick="showLogin()" style="margin-top: 10px;">Torna al Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="appContainer" class="hidden">
+        <div class="container">
+            <div class="header">
+                <div class="user-info">
+                    <span id="userEmail">utente@email.com</span>
+                    <button onclick="logout()">Esci</button>
+                </div>
+                <h1>📅 Gestione Presenze Dipendenti</h1>
+                <p>Sistema cloud condiviso per la gestione delle presenze</p>
+                <div class="cloud-badge">☁️ Dati sincronizzati in tempo reale</div>
+            </div>
+            
+            <div class="controls">
+                <div>
+                    <label>Mese:</label>
+                    <select id="monthSelect">
+                        <option value="0">Gennaio</option>
+                        <option value="1">Febbraio</option>
+                        <option value="2">Marzo</option>
+                        <option value="3">Aprile</option>
+                        <option value="4">Maggio</option>
+                        <option value="5">Giugno</option>
+                        <option value="6">Luglio</option>
+                        <option value="7">Agosto</option>
+                        <option value="8">Settembre</option>
+                        <option value="9">Ottobre</option>
+                        <option value="10">Novembre</option>
+                        <option value="11">Dicembre</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Anno:</label>
+                    <input type="number" id="yearInput" value="2025" min="2020" max="2030">
+                </div>
+                <button class="btn btn-primary" onclick="updateCalendar()">Aggiorna Calendario</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
+                <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
+            </div>
+            
+            <div id="manageSection" class="manage-section hidden">
+                <h3>Gestione Aziende e Dipendenti</h3>
+                
+                <div class="input-group">
+                    <label>Nome Azienda:</label>
+                    <input type="text" id="companyNameInput" placeholder="Es: Azienda Alfa">
+                </div>
+                <button class="btn btn-primary" onclick="addCompany()">Aggiungi Azienda</button>
+                
+                <div style="margin-top: 20px;">
+                    <div class="input-group">
+                        <label>Seleziona Azienda:</label>
+                        <select id="companySelectForEmployee"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>Nome Dipendente:</label>
+                        <input type="text" id="employeeNameInput" placeholder="Es: Mario Rossi">
+                    </div>
+                    <button class="btn btn-primary" onclick="addEmployee()">Aggiungi Dipendente</button>
+                </div>
+                
+                <div id="companiesList" class="company-list" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div id="loadingIndicator" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Caricamento dati...</p>
+            </div>
+            
+            <div class="content" id="calendarContent"></div>
+        </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>Modifica Presenza</h3>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Firebase Configuration - SOSTITUISCI CON I TUOI DATI
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        // Variabili globali
+        let app, auth, database;
+        let currentUser = null;
+        let companies = [];
+        let presences = {};
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let currentEditCell = null;
+        let isFirebaseConfigured = false;
+        
+        // Inizializza Firebase
+        function initFirebase() {
+            try {
+                // Controlla se la configurazione è valida
+                if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                    console.warn("Firebase non configurato - usando localStorage");
+                    document.getElementById('setupInstructions').classList.remove('hidden');
+                    isFirebaseConfigured = false;
+                    // Usa localStorage come fallback
+                    initLocalMode();
+                    return;
+                }
+                
+                app = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                database = firebase.database();
+                isFirebaseConfigured = true;
+                
+                // Listener per cambiamenti autenticazione
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('loginScreen').classList.add('hidden');
+                        document.getElementById('appContainer').classList.remove('hidden');
+                        document.getElementById('userEmail').textContent = user.email;
+                        loadDataFromFirebase();
+                    } else {
+                        currentUser = null;
+                        document.getElementById('loginScreen').classList.remove('hidden');
+                        document.getElementById('appContainer').classList.add('hidden');
+                    }
+                });
+            } catch (error) {
+                console.error("Errore inizializzazione Firebase:", error);
+                document.getElementById('setupInstructions').classList.remove('hidden');
+                initLocalMode();
+            }
+        }
+        
+        // Modalità locale (localStorage)
+        function initLocalMode() {
+            isFirebaseConfigured = false;
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('userEmail').textContent = 'Modalità Locale';
+            loadDataFromLocalStorage();
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        }
+        
+        // Carica dati da localStorage
+        function loadDataFromLocalStorage() {
+            const savedCompanies = localStorage.getItem('companies');
+            const savedPresences = localStorage.getItem('presences');
+            
+            if (savedCompanies) {
+                companies = JSON.parse(savedCompanies);
+            } else {
+                companies = [
+                    {id: 1, name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"]},
+                    {id: 2, name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"]},
+                    {id: 3, name: "Azienda Gamma", employees: ["Sara Gialli"]}
+                ];
+            }
+            
+            if (savedPresences) {
+                presences = JSON.parse(savedPresences);
+            }
+            
+            updateCalendar();
+            document.getElementById('loadingIndicator').classList.add('hidden');
+        }
+        
+        // Salva dati in localStorage
+        function saveDataToLocalStorage() {
+            localStorage.setItem('companies', JSON.stringify(companies));
+            localStorage.setItem('presences', JSON.stringify(presences));
+        }
+        
+        // Login
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!isFirebaseConfigured) {
+                showMessage('loginMessage', 'Firebase non configurato', 'error');
+                return;
+            }
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(error => {
+                    showMessage('loginMessage', 'Errore: ' + error.message, 'error');
+                });
+        }
+        
+        // Registrazione
+        function register() {
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerPasswordConfirm').value;
+            
+            if (!isFirebaseConfigured) {
+                showMessage('loginMessage', 'Firebase non configurato', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showMessage('loginMessage', 'Le password non corrispondono', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('loginMessage', 'La password deve essere di almeno 6 caratteri', 'error');
+                return;
+            }
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(() => {
+                    showMessage('loginMessage', 'Account creato con successo!', 'success');
+                    setTimeout(() => showLogin(), 2000);
+                })
+                .catch(error => {
+                    showMessage('loginMessage', 'Errore: ' + error.message, 'error');
+                });
+        }
+        
+        // Logout
+        function logout() {
+            if (isFirebaseConfigured) {
+                auth.signOut();
+            } else {
+                location.reload();
+            }
+        }
+        
+        // Mostra/nascondi form
+        function showRegister() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('loginMessage').innerHTML = '';
+        }
+        
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginMessage').innerHTML = '';
+        }
+        
+        // Mostra messaggi
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            const className = type === 'error' ? 'error-message' : 'success-message';
+            element.innerHTML = `<div class="${className}">${message}</div>`;
+        }
+        
+        // Carica dati da Firebase
+        function loadDataFromFirebase() {
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+            
+            // Carica aziende
+            database.ref('companies').on('value', snapshot => {
+                const data = snapshot.val();
+                companies = data ? Object.values(data) : [];
+                updateCalendar();
+                document.getElementById('loadingIndicator').classList.add('hidden');
+            });
+            
+            // Carica presenze
+            database.ref('presences').on('value', snapshot => {
+                const data = snapshot.val();
+                presences = data || {};
+                updateCalendar();
+            });
+        }
+        
+        // Salva dati su Firebase
+        function saveDataToFirebase() {
+            if (!isFirebaseConfigured || !currentUser) {
+                saveDataToLocalStorage();
+                return;
+            }
+            
+            const companiesObj = {};
+            companies.forEach(c => {
+                companiesObj[c.id] = c;
+            });
+            
+            database.ref('companies').set(companiesObj);
+            database.ref('presences').set(presences);
+        }
+        
+        // Funzioni calendario (identiche alla versione precedente)
+        function getDaysInMonth(month, year) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+        
+        function getDayName(day, month, year) {
+            const date = new Date(year, month, day);
+            const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+            return days[date.getDay()];
+        }
+        
+        function isWeekend(day, month, year) {
+            const date = new Date(year, month, day);
+            return date.getDay() === 0 || date.getDay() === 6;
+        }
+        
+        function getPresenceKey(companyId, employee, day) {
+            return `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`;
+        }
+        
+        function setPresence(companyId, employee, day, value) {
+            const key = getPresenceKey(companyId, employee, day);
+            presences[key] = value;
+            saveDataToFirebase();
+        }
+        
+        function getPresence(companyId, employee, day) {
+            const key = getPresenceKey(companyId, employee, day);
+            return presences[key] || '';
+        }
+        
+        function fillAllDays(companyId, employee) {
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            for (let day = 1; day <= daysInMonth; day++) {
+                setPresence(companyId, employee, day, '8');
+            }
+        }
+        
+        function openModal(companyId, employee, day) {
+            currentEditCell = {companyId, employee, day};
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const currentValue = getPresence(companyId, employee, day);
+            
+            modalContent.innerHTML = `
+                <p><strong>Dipendente:</strong> ${employee}</p>
+                <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>
+                <div class="input-group">
+                    <label>Ore lavorate:</label>
+                    <input type="number" id="hoursInput" value="${currentValue === 'F' || currentValue === 'M' ? '' : currentValue}" 
+                           placeholder="Es: 8" min="0" max="24" step="0.5">
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn btn-success" onclick="saveHours()">Salva Ore</button>
+                    <button class="modal-btn btn-warning" onclick="saveFerie()">Ferie (F)</button>
+                    <button class="modal-btn btn-warning" onclick="saveMutua()">Mutua (M)</button>
+                    <button class="modal-btn btn-primary" onclick="clearDay()">Azzera</button>
+                    <button class="modal-btn" style="background: #6c757d; color: white;" onclick="closeModal()">Annulla</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentEditCell = null;
+        }
+        
+        function saveHours() {
+            const hours = document.getElementById('hoursInput').value;
+            if (hours && currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours);
+                closeModal();
+            }
+        }
+        
+        function saveFerie() {
+            if (currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F');
+                closeModal();
+            }
+        }
+        
+        function saveMutua() {
+            if (currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M');
+                closeModal();
+            }
+        }
+        
+        function clearDay() {
+            if (currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '');
+                closeModal();
+            }
+        }
+        
+        function updateCalendar() {
+            currentMonth = parseInt(document.getElementById('monthSelect').value);
+            currentYear = parseInt(document.getElementById('yearInput').value);
+            
+            const content = document.getElementById('calendarContent');
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            
+            let html = '';
+            
+            companies.forEach(company => {
+                html += `
+                    <div class="company-section">
+                        <div class="company-header">
+                            <h2>${company.name}</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th class="employee-name">Dipendente</th>
+                                        <th>Azioni</th>
+                `;
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    html += `<th>${day}<br>${dayName}</th>`;
+                }
+                
+                html += `
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                company.employees.forEach(employee => {
+                    html += `
+                        <tr>
+                            <td class="employee-name">${employee}</td>
+                            <td><button class="btn btn-primary fill-all-btn" onclick="fillAllDays(${company.id}, '${employee}')">Compila tutto con 8h</button></td>
+                    `;
+                    
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const value = getPresence(company.id, employee, day);
+                        const isWeekendDay = isWeekend(day, currentMonth, currentYear);
+                        let cellClass = 'day-cell';
+                        
+                        if (isWeekendDay) cellClass += ' weekend';
+                        if (value) {
+                            if (value === 'F') cellClass += ' ferie';
+                            else if (value === 'M') cellClass += ' mutua';
+                            else cellClass += ' filled';
+                        }
+                        
+                        html += `<td class="${cellClass}" onclick="openModal(${company.id}, '${employee}', ${day})">${value}</td>`;
+                    }
+                    
+                    html += `</tr>`;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+        }
+        
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+            
+            companies.forEach(company => {
+                const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+                const data = [];
+                
+                // Header
+                const headerRow = ['Dipendente'];
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    headerRow.push(`${day} ${dayName}`);
+                }
+                data.push(headerRow);
+                
+                // Employees data
+                company.employees.forEach(employee => {
+                    const row = [employee];
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const value = getPresence(company.id, employee, day);
+                        row.push(value || '');
+                    }
+                    data.push(row);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(wb, ws, company.name.substring(0, 31));
+            });
+            
+            const filename = `Presenze_${monthNames[currentMonth]}_${currentYear}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        function toggleManage() {
+            const section = document.getElementById('manageSection');
+            section.classList.toggle('hidden');
+            if (!section.classList.contains('hidden')) {
+                updateCompanySelect();
+                updateCompaniesList();
+            }
+        }
+        
+        function addCompany() {
+            const name = document.getElementById('companyNameInput').value.trim();
+            if (name) {
+                const newId = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
+                companies.push({id: newId, name: name, employees: []});
+                saveDataToFirebase();
+                document.getElementById('companyNameInput').value = '';
+                updateCompanySelect();
+                updateCompaniesList();
+            }
+        }
+        
+        function addEmployee() {
+            const companyId = parseInt(document.getElementById('companySelectForEmployee').value);
+            const name = document.getElementById('employeeNameInput').value.trim();
+            
+            if (companyId && name) {
+                const company = companies.find(c => c.id === companyId);
+                if (company) {
+                    company.employees.push(name);
+                    saveDataToFirebase();
+                    document.getElementById('employeeNameInput').value = '';
+                    updateCompaniesList();
+                }
+            }
+        }
+        
+        function removeEmployee(companyId, employeeName) {
+            const company = companies.find(c => c.id === companyId);
+            if (company) {
+                company.employees = company.employees.filter(e => e !== employeeName);
+                saveDataToFirebase();
+                updateCompaniesList();
+            }
+        }
+        
+        function removeCompany(companyId) {
+            if (confirm('Sei sicuro di voler eliminare questa azienda e tutti i suoi dipendenti?')) {
+                companies = companies.filter(c => c.id !== companyId);
+                saveDataToFirebase();
+                updateCompanySelect();
+                updateCompaniesList();
+            }
+        }
+        
+        function updateCompanySelect() {
+            const select = document.getElementById('companySelectForEmployee');
+            select.innerHTML = '<option value="">Seleziona...</option>';
+            companies.forEach(company => {
+                select.innerHTML += `<option value="${company.id}">${company.name}</option>`;
+            });
+        }
+        
+        function updateCompaniesList() {
+            const list = document.getElementById('companiesList');
+            list.innerHTML = '';
+            
+            companies.forEach(company => {
+                const div = document.createElement('div');
+                div.className = 'company-item';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4>${company.name}</h4>
+                        <button class="btn" style="background: #dc3545; color: white; padding: 5px 10px; font-size: 12px;" 
+                                onclick="removeCompany(${company.id})">Elimina Azienda</button>
+                    </div>
+                    <div class="employee-list">
+                        ${company.employees.map(emp => `
+                            <div class="employee-tag">
+                                ${emp}
+                                <button onclick="removeEmployee(${company.id}, '${emp}')">×</button>
+                            </div>
+                        `).join('') || '<p style="color: #6c757d; font-size: 12px;">Nessun dipendente</p>'}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        // Chiudi modal cliccando fuori
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // Inizializzazione
+        document.getElementById('monthSelect').value = currentMonth;
+        document.getElementById('yearInput').value = currentYear;
+        initFirebase();
+    </script>
+</body>
+</html>

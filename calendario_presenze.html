@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Presenze Dipendenti</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .controls label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .controls select, .controls input {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .controls select:focus, .controls input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .content {
+            padding: 30px;
+            overflow-x: auto;
+        }
+        
+        .company-section {
+            margin-bottom: 40px;
+        }
+        
+        .company-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .company-header h2 {
+            font-size: 1.5em;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .employee-name {
+            text-align: left;
+            font-weight: 600;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+        
+        .day-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 50px;
+            font-size: 14px;
+            line-height: 1.3;
+            vertical-align: middle;
+            padding: 8px 4px;
+        }
+        
+        .day-cell:hover {
+            background: #e7f1ff;
+            transform: scale(1.05);
+        }
+        
+        .day-cell small {
+            font-size: 11px;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .day-cell.filled {
+            background: #d4edda;
+            font-weight: 600;
+        }
+        
+        .day-cell.ferie {
+            background: #fff3cd;
+            font-weight: 600;
+        }
+        
+        .day-cell.mutua {
+            background: #f8d7da;
+            font-weight: 600;
+        }
+        
+        .weekend {
+            background: #f1f3f5;
+        }
+        
+        .fill-all-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+        
+        .modal-buttons {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .manage-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .manage-section h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+        
+        .company-list {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .company-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .company-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .employee-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .employee-tag {
+            background: #e7f1ff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .employee-tag button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Gestione Presenze Dipendenti</h1>
+            <p>Sistema completo per la gestione delle presenze con esportazione Excel</p>
+        </div>
+        
+        <div class="controls">
+            <div>
+                <label>Mese:</label>
+                <select id="monthSelect">
+                    <option value="0">Gennaio</option>
+                    <option value="1">Febbraio</option>
+                    <option value="2">Marzo</option>
+                    <option value="3">Aprile</option>
+                    <option value="4">Maggio</option>
+                    <option value="5">Giugno</option>
+                    <option value="6">Luglio</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Settembre</option>
+                    <option value="9">Ottobre</option>
+                    <option value="10">Novembre</option>
+                    <option value="11">Dicembre</option>
+                </select>
+            </div>
+            <div>
+                <label>Anno:</label>
+                <input type="number" id="yearInput" value="2025" min="2020" max="2030">
+            </div>
+            <button class="btn btn-primary" onclick="updateCalendar()">Aggiorna Calendario</button>
+            <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
+            <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
+            <button class="btn" style="background: #dc3545; color: white; font-weight: bold;" onclick="resetMonthPresences()">❗ Svuota mese corrente</button>
+            <button class="btn" style="background: #343a40; color: #fff; font-weight: bold;" onclick="backupData()">💾 Backup Dati</button>
+            <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(event)">
+            <button class="btn" style="background: #17a2b8; color: #fff; font-weight: bold;" onclick="document.getElementById('restoreInput').click()">📂 Ripristina Dati</button>
+        </div>
+        
+        <div id="manageSection" class="manage-section" style="display: none;">
+            <h3>Gestione Aziende e Dipendenti</h3>
+            
+            <div class="input-group">
+                <label>Nome Azienda:</label>
+                <input type="text" id="companyNameInput" placeholder="Es: Azienda Alfa">
+            </div>
+            <button class="btn btn-primary" onclick="addCompany()">Aggiungi Azienda</button>
+            
+            <div style="margin-top: 20px;">
+                <div class="input-group">
+                    <label>Seleziona Azienda:</label>
+                    <select id="companySelectForEmployee"></select>
+                </div>
+                <div class="input-group">
+                    <label>Nome Dipendente:</label>
+                    <input type="text" id="employeeNameInput" placeholder="Es: Mario Rossi">
+                </div>
+                <button class="btn btn-primary" onclick="addEmployee()">Aggiungi Dipendente</button>
+            </div>
+            
+            <div id="companiesList" class="company-list" style="margin-top: 20px;"></div>
+        </div>
+        
+        <div class="content" id="calendarContent"></div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>Modifica Presenza</h3>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Struttura dati
+        let companies = [];
+        let presences = {};
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let currentEditCell = null;
+        
+        // Carica dati salvati
+        function loadData() {
+            const savedCompanies = localStorage.getItem('companies');
+            const savedPresences = localStorage.getItem('presences');
+            
+            if (savedCompanies) {
+                companies = JSON.parse(savedCompanies);
+            } else {
+                // Dati di esempio
+                companies = [
+                    {id: 1, name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"]},
+                    {id: 2, name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"]},
+                    {id: 3, name: "Azienda Gamma", employees: ["Sara Gialli"]}
+                ];
+            }
+            
+            if (savedPresences) {
+                presences = JSON.parse(savedPresences);
+            }
+        }
+        
+        function saveData() {
+            localStorage.setItem('companies', JSON.stringify(companies));
+            localStorage.setItem('presences', JSON.stringify(presences));
+        }
+        
+        function getDaysInMonth(month, year) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+        
+        function getDayName(day, month, year) {
+            const date = new Date(year, month, day);
+            const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+            return days[date.getDay()];
+        }
+        
+        function isWeekend(day, month, year) {
+            const date = new Date(year, month, day);
+            return date.getDay() === 0 || date.getDay() === 6;
+        }
+        
+        function getPresenceKey(companyId, employee, day) {
+            return `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`;
+        }
+        
+        function setPresence(companyId, employee, day, value, overtime = '', notes = '') {
+            const key = getPresenceKey(companyId, employee, day);
+            presences[key] = { value, overtime, notes };
+            saveData();
+        }
+        
+        function getPresence(companyId, employee, day) {
+            const key = getPresenceKey(companyId, employee, day);
+            return presences[key] || { value: '', overtime: '', notes: '' };
+        }
+        
+        function fillAllDays(companyId, employee) {
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (!isWeekend(day, currentMonth, currentYear)) { // Salta sabato e domenica
+                    setPresence(companyId, employee, day, '8');
+                }
+            }
+            updateCalendar();
+        }
+        
+        function openModal(companyId, employee, day) {
+            currentEditCell = {companyId, employee, day};
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const currentValue = getPresence(companyId, employee, day);
+            
+            const presence = getPresence(companyId, employee, day);
+            modalContent.innerHTML = `
+                <p><strong>Dipendente:</strong> ${employee}</p>
+                <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>
+                <div class="input-group">
+                    <label>Ore lavorate:</label>
+                    <input type="number" id="hoursInput" value="${presence.value === 'F' || presence.value === 'M' ? '' : presence.value}" 
+                           placeholder="Es: 8" min="0" max="24" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Ore straordinarie:</label>
+                    <input type="number" id="overtimeInput" value="${presence.overtime}" 
+                           placeholder="Es: 2" min="0" max="12" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Note:</label>
+                    <input type="text" id="notesInput" value="${presence.notes}" 
+                           placeholder="Inserisci una nota...">
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn btn-success" onclick="saveHours()">Salva Ore</button>
+                    <button class="modal-btn btn-warning" onclick="saveFerie()">Ferie (F)</button>
+                    <button class="modal-btn btn-warning" onclick="saveMutua()">Mutua (M)</button>
+                    <button class="modal-btn btn-primary" onclick="clearDay()">Azzera</button>
+                    <button class="modal-btn" style="background: #6c757d; color: white;" onclick="closeModal()">Annulla</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentEditCell = null;
+        }
+        
+        function saveHours() {
+            const hours = document.getElementById('hoursInput').value;
+            const overtime = document.getElementById('overtimeInput').value;
+            const notes = document.getElementById('notesInput').value;
+            if (hours && currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
+                updateCalendar();
+                closeModal();
+            }
+        }
+        
+        function saveFerie() {
+            if (currentEditCell) {
+                const notes = document.getElementById('notesInput').value;
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
+                updateCalendar();
+                closeModal();
+            }
+        }
+        
+        function saveMutua() {
+            if (currentEditCell) {
+                const notes = document.getElementById('notesInput').value;
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
+                updateCalendar();
+                closeModal();
+            }
+        }
+        
+        function clearDay() {
+            if (currentEditCell) {
+                setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
+                updateCalendar();
+                closeModal();
+            }
+        }
+        
+        function updateCalendar() {
+            currentMonth = parseInt(document.getElementById('monthSelect').value);
+            currentYear = parseInt(document.getElementById('yearInput').value);
+            
+            const content = document.getElementById('calendarContent');
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            
+            let html = '';
+            
+            companies.forEach(company => {
+                html += `
+                    <div class="company-section">
+                        <div class="company-header">
+                            <h2>${company.name}</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th class="employee-name">Dipendente</th>
+                                        <th>Azioni</th>
+                `;
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    html += `<th>${day}<br>${dayName}</th>`;
+                }
+                
+                html += `
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                company.employees.forEach(employee => {
+                    html += `
+                        <tr>
+                            <td class="employee-name">${employee}</td>
+                            <td><button class="btn btn-primary fill-all-btn" onclick="fillAllDays(${company.id}, '${employee}')">Compila tutto con 8h</button></td>
+                    `;
+                    
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const presence = getPresence(company.id, employee, day);
+                        const isWeekendDay = isWeekend(day, currentMonth, currentYear);
+                        let cellClass = 'day-cell';
+                        
+                        if (isWeekendDay) cellClass += ' weekend';
+                        if (presence.value) {
+                            if (presence.value === 'F') cellClass += ' ferie';
+                            else if (presence.value === 'M') cellClass += ' mutua';
+                            else cellClass += ' filled';
+                        }
+                        
+                        let cellContent = presence.value;
+                        if (presence.overtime) {
+                            cellContent += `<br><small style="color: #e67e22;">+${presence.overtime}h</small>`;
+                        }
+                        if (presence.notes) {
+                            cellContent += '<br><small style="color: #3498db;">📝</small>';
+                        }
+                        
+                        html += `<td class="${cellClass}" onclick="openModal(${company.id}, '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
+                    }
+                    
+                    html += `</tr>`;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+        }
+        
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+            
+            companies.forEach(company => {
+                const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+                const data = [];
+                
+                // Header
+                const headerRow = ['Dipendente'];
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    headerRow.push(`${day} ${dayName}`);
+                    headerRow.push(`${day} Straord.`);
+                    headerRow.push(`${day} Note`);
+                }
+                data.push(headerRow);
+                
+                // Employees data
+                company.employees.forEach(employee => {
+                    const row = [employee];
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const presence = getPresence(company.id, employee, day);
+                        row.push(presence.value || '');
+                        row.push(presence.overtime || '');
+                        row.push(presence.notes || '');
+                    }
+                    data.push(row);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(wb, ws, company.name.substring(0, 31));
+            });
+            
+            const filename = `Presenze_${monthNames[currentMonth]}_${currentYear}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        function toggleManage() {
+            const section = document.getElementById('manageSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            if (section.style.display === 'block') {
+                updateCompanySelect();
+                updateCompaniesList();
+            }
+        }
+        
+        function addCompany() {
+            const name = document.getElementById('companyNameInput').value.trim();
+            if (name) {
+                const newId = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
+                companies.push({id: newId, name: name, employees: []});
+                saveData();
+                document.getElementById('companyNameInput').value = '';
+                updateCompanySelect();
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        function addEmployee() {
+            const companyId = parseInt(document.getElementById('companySelectForEmployee').value);
+            const name = document.getElementById('employeeNameInput').value.trim();
+            
+            if (companyId && name) {
+                const company = companies.find(c => c.id === companyId);
+                if (company) {
+                    company.employees.push(name);
+                    saveData();
+                    document.getElementById('employeeNameInput').value = '';
+                    updateCompaniesList();
+                    updateCalendar();
+                }
+            }
+        }
+        
+        function removeEmployee(companyId, employeeName) {
+            const company = companies.find(c => c.id === companyId);
+            if (company) {
+                company.employees = company.employees.filter(e => e !== employeeName);
+                saveData();
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        function removeCompany(companyId) {
+            if (confirm('Sei sicuro di voler eliminare questa azienda e tutti i suoi dipendenti?')) {
+                companies = companies.filter(c => c.id !== companyId);
+                saveData();
+                updateCompanySelect();
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        function updateCompanySelect() {
+            const select = document.getElementById('companySelectForEmployee');
+            select.innerHTML = '<option value="">Seleziona...</option>';
+            companies.forEach(company => {
+                select.innerHTML += `<option value="${company.id}">${company.name}</option>`;
+            });
+        }
+        
+        function updateCompaniesList() {
+            const list = document.getElementById('companiesList');
+            list.innerHTML = '';
+            
+            companies.forEach(company => {
+                const div = document.createElement('div');
+                div.className = 'company-item';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4>${company.name}</h4>
+                        <button class="btn" style="background: #dc3545; color: white; padding: 5px 10px; font-size: 12px;" 
+                                onclick="removeCompany(${company.id})">Elimina Azienda</button>
+                    </div>
+                    <div class="employee-list">
+                        ${company.employees.map(emp => `
+                            <div class="employee-tag">
+                                ${emp}
+                                <button onclick="removeEmployee(${company.id}, '${emp}')">×</button>
+                            </div>
+                        `).join('') || '<p style="color: #6c757d; font-size: 12px;">Nessun dipendente</p>'}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function resetMonthPresences() {
+            if (!confirm('ATTENZIONE: Questa operazione cancellerà tutte le presenze del mese corrente per tutte le aziende e dipendenti. Sei sicuro di voler continuare?')) {
+                return;
+            }
+            // Rimuovi tutte le presenze del mese corrente
+            const keysToDelete = [];
+            for (const key in presences) {
+                // Chiave: `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`
+                if (key.startsWith(`${currentYear}-${currentMonth}-`)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => delete presences[key]);
+            saveData();
+            updateCalendar();
+        }
+
+        function backupData() {
+            const data = {
+                companies,
+                presences
+            };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const h = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            a.download = `presenze-backup_${y}${m}${d}_${h}${min}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function restoreData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data || typeof data !== 'object' || !Array.isArray(data.companies) || typeof data.presences !== 'object') {
+                        alert('File di backup non valido.');
+                        return;
+                    }
+                    if (!confirm('Ripristinare i dati sovrascriverà tutte le aziende e presenze attuali. Continuare?')) {
+                        return;
+                    }
+                    companies = data.companies;
+                    presences = data.presences;
+                    saveData();
+                    updateCompanySelect();
+                    updateCompaniesList();
+                    updateCalendar();
+                    alert('Dati ripristinati con successo!');
+                } catch (err) {
+                    alert('Errore nel caricamento del backup: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            // Reset input per permettere nuovo upload dello stesso file se necessario
+            event.target.value = '';
+        }
+
+        // Chiudi modal cliccando fuori
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // Inizializzazione
+        loadData();
+        document.getElementById('monthSelect').value = currentMonth;
+        document.getElementById('yearInput').value = currentYear;
+        updateCalendar();
+    </script>
+</body>
+</html>
