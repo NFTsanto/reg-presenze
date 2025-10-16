@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -445,75 +446,6 @@
         .logout-btn:hover {
             background: rgba(255,255,255,0.3);
         }
-
-        /* Stili per la sezione riepilogo ferie */
-        .summary-section {
-            margin: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .summary-section h2 {
-            color: #495057;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #dee2e6;
-        }
-
-        .vacation-summary {
-            display: grid;
-            gap: 20px;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
-
-        .employee-vacation-card {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #dee2e6;
-        }
-
-        .employee-vacation-card h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .vacation-count {
-            font-size: 2em;
-            font-weight: bold;
-            color: #28a745;
-            margin: 10px 0;
-        }
-
-        .vacation-count.warning {
-            color: #ffc107;
-        }
-
-        .vacation-count.danger {
-            color: #dc3545;
-        }
-
-        .collision-alerts {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid #dee2e6;
-        }
-
-        .collision-alert {
-            background: #fff3cd;
-            border: 1px solid #ffeeba;
-            color: #856404;
-            padding: 10px 15px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-
-        .collision-alert strong {
-            color: #533f03;
-        }
     </style>
 </head>
 <body>
@@ -604,17 +536,6 @@
         </div>
         
         <div class="content" id="calendarContent"></div>
-
-        <!-- Sezione Riepilogo Ferie -->
-        <div class="summary-section">
-            <h2>📊 Riepilogo Ferie e Analisi Sovrapposizioni</h2>
-            <div id="vacationSummary" class="vacation-summary">
-                <!-- Contenuto generato dinamicamente -->
-            </div>
-            <div id="collisionAlerts" class="collision-alerts">
-                <!-- Avvisi sovrapposizioni generati dinamicamente -->
-            </div>
-        </div>
     </div>
     
     <div id="modal" class="modal">
@@ -644,6 +565,19 @@
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
+        // Gestione eventi tastiera per CTRL
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Control') {
+                isCtrlPressed = true;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Control') {
+                isCtrlPressed = false;
+            }
+        });
+
         // Configurazione Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAB68aGlLPg_mP40Gxz4d7rQ3lpOL96LJM",
@@ -665,6 +599,8 @@
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let currentEditCell = null;
+        let selectedCells = new Set(); // Tiene traccia delle celle selezionate
+        let isCtrlPressed = false; // Stato del tasto CTRL
         
         // Gestione dell'autenticazione
         async function handleLogin() {
@@ -755,6 +691,32 @@
                 showLoading(true);
                 updateSyncStatus('syncing', '🔄 Sincronizzazione...');
 
+                // --- Modalità solo locale: forza dati di esempio se non c'è DB o in fallback ---
+                let forceSample = false;
+                try {
+                    // Se siamo in locale e il DB non è raggiungibile, forziamo i dati di esempio
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1') {
+                        forceSample = true;
+                    }
+                } catch (e) { forceSample = true; }
+
+                if (forceSample) {
+                    companies = [
+                        { id: '1', name: "Azienda Test 1", employees: [
+                            "Mario Rossi", "Luca Bianchi", "Giulia Neri", "Francesca Blu", "Alessandro Verde"
+                        ] },
+                        { id: '2', name: "Azienda Test 2", employees: [
+                            "Paolo Gialli", "Anna Rosa", "Simone Viola", "Elena Grigi", "Davide Marrone"
+                        ] }
+                    ];
+                    presences = {};
+                    updateSyncStatus('synced', '✅ Modalità locale: dati di esempio');
+                    showLoading(false);
+                    updateCalendar();
+                    return;
+                }
+
+                // --- Modalità normale con DB ---
                 // Carica aziende
                 const companiesSnapshot = await getDocs(collection(db, 'companies'));
                 companies = [];
@@ -765,6 +727,8 @@
                 // Se non ci sono aziende, crea dati di esempio
                 if (companies.length === 0) {
                     await createSampleData();
+                    await loadData();
+                    return;
                 }
 
                 // Carica presenze
@@ -787,9 +751,12 @@
         // Crea dati di esempio
         async function createSampleData() {
             const sampleCompanies = [
-                { id: '1', name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"] },
-                { id: '2', name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"] },
-                { id: '3', name: "Azienda Gamma", employees: ["Sara Gialli"] }
+                { id: '1', name: "Azienda Test 1", employees: [
+                    "Mario Rossi", "Luca Bianchi", "Giulia Neri", "Francesca Blu", "Alessandro Verde"
+                ] },
+                { id: '2', name: "Azienda Test 2", employees: [
+                    "Paolo Gialli", "Anna Rosa", "Simone Viola", "Elena Grigi", "Davide Marrone"
+                ] }
             ];
 
             for (const company of sampleCompanies) {
@@ -881,14 +848,37 @@
         }
         
         function openModal(companyId, employee, day) {
+            const cellKey = `${companyId}-${employee}-${day}`;
+            
+            if (isCtrlPressed) {
+                // Se CTRL è premuto, aggiungi o rimuovi dalla selezione
+                if (selectedCells.has(cellKey)) {
+                    selectedCells.delete(cellKey);
+                    document.querySelector(`[data-cell="${cellKey}"]`).classList.remove('selected');
+                } else {
+                    selectedCells.add(cellKey);
+                    document.querySelector(`[data-cell="${cellKey}"]`).classList.add('selected');
+                }
+                return;
+            }
+            
+            // Se non c'è CTRL, apri il modal normalmente
             currentEditCell = {companyId, employee, day};
             const modal = document.getElementById('modal');
             const modalContent = document.getElementById('modalContent');
             
+            // Se ci sono celle selezionate, mostra il modal per modifica multipla
+            const selectedDays = Array.from(selectedCells).map(key => {
+                const [cId, emp, d] = key.split('-');
+                return `${d} ${getDayName(parseInt(d), currentMonth, currentYear)}`;
+            }).join(', ');
+            
             const presence = getPresence(companyId, employee, day);
             modalContent.innerHTML = `
                 <p><strong>Dipendente:</strong> ${employee}</p>
-                <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>
+                ${selectedCells.size > 0 ? 
+                    `<p><strong>Giorni selezionati:</strong> ${selectedDays}</p>` :
+                    `<p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>`}
                 <div class="input-group">
                     <label>Ore lavorate:</label>
                     <input type="number" id="hoursInput" value="${presence.value === 'F' || presence.value === 'M' ? '' : presence.value}" 
@@ -919,35 +909,62 @@
         function closeModal() {
             document.getElementById('modal').classList.remove('active');
             currentEditCell = null;
+            selectedCells.clear(); // Pulisci la selezione quando chiudi il modal
+            updateCalendar(); // Aggiorna per rimuovere gli stili di selezione
         }
         
         async function saveHours() {
             const hours = document.getElementById('hoursInput').value;
             const overtime = document.getElementById('overtimeInput').value;
             const notes = document.getElementById('notesInput').value;
-            if (hours && currentEditCell) {
-                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
+            
+            if (hours) {
+                if (selectedCells.size > 0) {
+                    // Applica a tutte le celle selezionate
+                    for (const cellKey of selectedCells) {
+                        const [companyId, employee, day] = cellKey.split('-');
+                        await setPresence(companyId, employee, parseInt(day), hours, overtime, notes);
+                    }
+                    selectedCells.clear(); // Pulisci la selezione
+                } else if (currentEditCell) {
+                    // Applica solo alla cella corrente
+                    await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
+                }
                 updateCalendar();
                 closeModal();
             }
         }
         
         async function saveFerie() {
-            if (currentEditCell) {
-                const notes = document.getElementById('notesInput').value;
+            const notes = document.getElementById('notesInput').value;
+            if (selectedCells.size > 0) {
+                // Applica a tutte le celle selezionate
+                for (const cellKey of selectedCells) {
+                    const [companyId, employee, day] = cellKey.split('-');
+                    await setPresence(companyId, employee, parseInt(day), 'F', '', notes);
+                }
+                selectedCells.clear(); // Pulisci la selezione
+            } else if (currentEditCell) {
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
-                updateCalendar();
-                closeModal();
             }
+            updateCalendar();
+            closeModal();
         }
         
         async function saveMutua() {
-            if (currentEditCell) {
-                const notes = document.getElementById('notesInput').value;
+            const notes = document.getElementById('notesInput').value;
+            if (selectedCells.size > 0) {
+                // Applica a tutte le celle selezionate
+                for (const cellKey of selectedCells) {
+                    const [companyId, employee, day] = cellKey.split('-');
+                    await setPresence(companyId, employee, parseInt(day), 'M', '', notes);
+                }
+                selectedCells.clear(); // Pulisci la selezione
+            } else if (currentEditCell) {
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
-                updateCalendar();
-                closeModal();
             }
+            updateCalendar();
+            closeModal();
         }
         
         async function clearDay() {
@@ -965,6 +982,19 @@
             background: #e6d6fa !important;
             color: #4b2673;
             font-weight: 600;
+        }
+        .day-cell.selected {
+            outline: 3px solid #007bff !important;
+            outline-offset: -3px;
+            position: relative;
+        }
+        .day-cell.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            color: #007bff;
         }
         `;
         document.head.appendChild(style);
@@ -1003,7 +1033,7 @@
             updateCalendar();
         }
 
-        function updateCalendar() {
+    function updateCalendar() {
             currentMonth = parseInt(document.getElementById('monthSelect').value);
             currentYear = parseInt(document.getElementById('yearInput').value);
             
@@ -1067,7 +1097,11 @@
                             cellContent += '<br><small style="color: #3498db;">📝</small>';
                         }
                         
-                        html += `<td class="${cellClass}" onclick="window.openModal('${company.id}', '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
+                        const cellKey = `${company.id}-${employee}-${day}`;
+                        if (selectedCells.has(cellKey)) {
+                            cellClass += ' selected';
+                        }
+                        html += `<td class="${cellClass}" data-cell="${cellKey}" onclick="window.openModal('${company.id}', '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
                     }
                     
                     html += `</tr>`;
@@ -1082,6 +1116,66 @@
             });
             
             content.innerHTML = html;
+
+            // --- SEZIONE RIEPILOGO FERIE ---
+            // Calcolo ferie per dipendente e collisioni
+            const feriePerDipendente = {};
+            const feriePerGiorno = {};
+            const year = parseInt(document.getElementById('yearInput').value);
+            companies.forEach(company => {
+                company.employees.forEach(employee => {
+                    let ferieCount = 0;
+                    for (let m = 0; m < 12; m++) {
+                        const days = getDaysInMonth(m, year);
+                        for (let d = 1; d <= days; d++) {
+                            const key = `${year}-${m}-${company.id}-${employee}-${d}`;
+                            const presence = presences[key];
+                            if (presence && presence.value === 'F') {
+                                ferieCount++;
+                                // Collisioni: m+1 per mese umano
+                                const giorno = `${year}-${(m+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+                                if (!feriePerGiorno[giorno]) feriePerGiorno[giorno] = [];
+                                feriePerGiorno[giorno].push(employee + ' (' + company.name + ')');
+                            }
+                        }
+                    }
+                    feriePerDipendente[employee + ' (' + company.name + ')'] = ferieCount;
+                });
+            });
+
+            // Riepilogo HTML
+            let riepilogoHtml = `<div style="margin-top:40px;padding:24px 16px 16px 16px;background:#f8f9fa;border-radius:12px;box-shadow:0 2px 8px #0001;max-width:900px;margin-left:auto;margin-right:auto;">
+                <h2 style='color:#764ba2;margin-bottom:12px;'>Riepilogo Ferie Dipendenti</h2>
+                <table style='width:100%;border-collapse:collapse;'>
+                    <thead><tr><th style='text-align:left;padding:6px 8px;'>Dipendente</th><th style='padding:6px 8px;'>Ferie totali</th><th style='padding:6px 8px;'>Segnalazioni</th></tr></thead><tbody>`;
+            Object.entries(feriePerDipendente).forEach(([nome, count]) => {
+                let segnalazione = '';
+                if (count >= 25) segnalazione = `<span style='color:#dc3545;font-weight:bold;'>Superato limite 25!</span>`;
+                riepilogoHtml += `<tr><td style='padding:6px 8px;'>${nome}</td><td style='text-align:center;padding:6px 8px;'>${count}</td><td style='text-align:center;padding:6px 8px;'>${segnalazione}</td></tr>`;
+            });
+            riepilogoHtml += `</tbody></table>`;
+
+            // Collisioni ferie
+            let collisioni = Object.entries(feriePerGiorno).filter(([giorno, arr]) => arr.length > 1);
+            if (collisioni.length > 0) {
+                riepilogoHtml += `<div style='margin-top:24px;'><h3 style='color:#e67e22;'>Collisioni ferie (stesso giorno):</h3><ul style='margin:0;padding-left:18px;'>`;
+                collisioni.forEach(([giorno, arr]) => {
+                    riepilogoHtml += `<li><b>${giorno}</b>: ${arr.join(', ')}</li>`;
+                });
+                riepilogoHtml += `</ul></div>`;
+            } else {
+                riepilogoHtml += `<div style='margin-top:24px;color:#28a745;'>Nessuna collisione ferie rilevata nell'anno.</div>`;
+            }
+            riepilogoHtml += `</div>`;
+
+            // Rimuovi vecchia tabella riepilogo se esiste
+            const oldRiepilogo = document.getElementById('ferieRiepilogoBox');
+            if (oldRiepilogo) oldRiepilogo.remove();
+            // Inserisci riepilogo in fondo
+            const riepilogoDiv = document.createElement('div');
+            riepilogoDiv.id = 'ferieRiepilogoBox';
+            riepilogoDiv.innerHTML = riepilogoHtml;
+            content.parentNode.appendChild(riepilogoDiv);
         }
         
         function exportToExcel() {
@@ -1270,104 +1364,6 @@
         window.clearDay = clearDay;
         window.handleLogin = handleLogin;
         window.handleLogout = handleLogout;
-
-        // Funzioni per il riepilogo ferie
-        function calculateVacationSummary() {
-            const summary = {};
-            const collisions = {};
-            const VACATION_LIMIT = 25;
-
-            // Inizializza il conteggio per ogni dipendente
-            companies.forEach(company => {
-                company.employees.forEach(employee => {
-                    summary[employee] = {
-                        count: 0,
-                        dates: []  // Per tracciare le date specifiche
-                    };
-                });
-            });
-
-            // Calcola le ferie per ogni mese dell'anno
-            for (let month = 0; month < 12; month++) {
-                const daysInMonth = getDaysInMonth(month, currentYear);
-                
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${day}/${month + 1}/${currentYear}`;
-                    const employeesOnVacation = [];
-
-                    // Controlla ogni dipendente per questo giorno
-                    companies.forEach(company => {
-                        company.employees.forEach(employee => {
-                            const presenceKey = `${currentYear}-${month}-${company.id}-${employee}-${day}`;
-                            const presence = presences[presenceKey];
-                            
-                            if (presence && presence.value === 'F') {
-                                summary[employee].count++;
-                                summary[employee].dates.push(dateStr);
-                                employeesOnVacation.push(employee);
-                            }
-                        });
-                    });
-
-                    // Verifica collisioni
-                    if (employeesOnVacation.length > 1) {
-                        collisions[dateStr] = employeesOnVacation;
-                    }
-                }
-            }
-
-            // Aggiorna la UI con il riepilogo
-            const summaryContainer = document.getElementById('vacationSummary');
-            summaryContainer.innerHTML = '';
-
-            Object.entries(summary).forEach(([employee, data]) => {
-                const card = document.createElement('div');
-                card.className = 'employee-vacation-card';
-                
-                let statusClass = '';
-                if (data.count > VACATION_LIMIT) {
-                    statusClass = 'danger';
-                } else if (data.count >= VACATION_LIMIT - 5) {
-                    statusClass = 'warning';
-                }
-
-                card.innerHTML = `
-                    <h3>${employee}</h3>
-                    <div class="vacation-count ${statusClass}">${data.count}</div>
-                    <p>giorni di ferie utilizzati${data.count > VACATION_LIMIT ? ' <strong style="color: #dc3545;">(Limite superato!)</strong>' : ''}</p>
-                    <p style="font-size: 0.9em; color: #666;">Date: ${data.dates.join(', ') || 'Nessuna ferie registrata'}</p>
-                `;
-                
-                summaryContainer.appendChild(card);
-            });
-
-            // Aggiorna gli avvisi di collisione
-            const collisionsContainer = document.getElementById('collisionAlerts');
-            collisionsContainer.innerHTML = Object.keys(collisions).length > 0 ? 
-                '<h3 style="color: #856404; margin-bottom: 15px;">⚠️ Sovrapposizioni Rilevate</h3>' : '';
-
-            Object.entries(collisions).forEach(([date, employees]) => {
-                const alert = document.createElement('div');
-                alert.className = 'collision-alert';
-                alert.innerHTML = `
-                    <strong>${date}:</strong> ${employees.join(', ')} hanno ferie pianificate nello stesso giorno.
-                `;
-                collisionsContainer.appendChild(alert);
-            });
-        }
-
-        // Aggiorna il riepilogo quando necessario
-        const originalUpdateCalendar = window.updateCalendar;
-        window.updateCalendar = function() {
-            originalUpdateCalendar();
-            calculateVacationSummary();
-        };
-
-        const originalLoadData = loadData;
-        window.loadData = async function() {
-            await originalLoadData();
-            calculateVacationSummary();
-        };
 
         // Inizializzazione
         async function init() {
