@@ -932,8 +932,20 @@
                 return;
             }
 
-            if (isMultiSelectMode) {
-                toggleCellSelection(event.target, companyId, employee, day);
+            // Se ci sono celle selezionate, apri il modal in modalità multipla
+            if (selectedCells.length > 0) {
+                // Se la cella cliccata non è già selezionata, la aggiungo alla selezione
+                const isAlreadySelected = selectedCells.some(c => c.companyId === companyId && c.employee === employee && c.day === day);
+                if (!isAlreadySelected) {
+                    toggleCellSelection(event.target, companyId, employee, day);
+                }
+                // Modal multiplo
+                const modal = document.getElementById('modal');
+                const modalContent = document.getElementById('modalContent');
+                const firstCell = selectedCells[0];
+                const presence = getPresence(firstCell.companyId, firstCell.employee, firstCell.day);
+                modalContent.innerHTML = generateModalContent(presence, null, null, true);
+                modal.classList.add('active');
                 return;
             }
 
@@ -942,10 +954,8 @@
             currentEditCell = {companyId, employee, day};
             const modal = document.getElementById('modal');
             const modalContent = document.getElementById('modalContent');
-            
             const presence = getPresence(companyId, employee, day);
             const isMultiple = false;
-            
             modalContent.innerHTML = generateModalContent(presence, employee, day, isMultiple);
             modal.classList.add('active');
         }
