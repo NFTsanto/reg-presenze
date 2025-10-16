@@ -616,6 +616,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Indicatore selezione multipla -->
+    <div id="multiSelectInfo" class="multi-select-info">
+        <span id="selectedCount">0 celle selezionate</span>
+        <button class="btn btn-primary" style="margin-left: 10px;" onclick="openModalForSelected()">Modifica selezionate</button>
+        <button class="btn" style="background: #6c757d; color: white; margin-left: 5px;" onclick="clearSelection()">Annulla</button>
+    </div>
     
     <div id="modal" class="modal">
         <div class="modal-content">
@@ -665,6 +672,8 @@
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
         let currentEditCell = null;
+        let selectedCells = [];
+        let isMultiSelectMode = false;
         
         // Gestione dell'autenticazione
         async function handleLogin() {
@@ -880,15 +889,88 @@
             updateCalendar();
         }
         
-        function openModal(companyId, employee, day) {
+        function toggleCellSelection(cell, companyId, employee, day) {
+            const cellInfo = { companyId, employee, day };
+            const cellIndex = selectedCells.findIndex(c => 
+                c.companyId === companyId && 
+                c.employee === employee && 
+                c.day === day
+            );
+
+            if (cellIndex === -1) {
+                selectedCells.push(cellInfo);
+                cell.classList.add('selected');
+            } else {
+                selectedCells.splice(cellIndex, 1);
+                cell.classList.remove('selected');
+            }
+
+            const multiSelectInfo = document.getElementById('multiSelectInfo');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (selectedCells.length > 0) {
+                multiSelectInfo.classList.add('active');
+                selectedCount.textContent = `${selectedCells.length} celle selezionate`;
+            } else {
+                multiSelectInfo.classList.remove('active');
+                isMultiSelectMode = false;
+            }
+        }
+
+        function clearSelection() {
+            const selectedElements = document.querySelectorAll('.day-cell.selected');
+            selectedElements.forEach(el => el.classList.remove('selected'));
+            selectedCells = [];
+            document.getElementById('multiSelectInfo').classList.remove('active');
+            isMultiSelectMode = false;
+        }
+
+        function openModal(companyId, employee, day, event) {
+            if (event && event.ctrlKey) {
+                isMultiSelectMode = true;
+                toggleCellSelection(event.target, companyId, employee, day);
+                return;
+            }
+
+            if (isMultiSelectMode) {
+                toggleCellSelection(event.target, companyId, employee, day);
+                return;
+            }
+
+            // Modalità singola cella
+            clearSelection();
             currentEditCell = {companyId, employee, day};
             const modal = document.getElementById('modal');
             const modalContent = document.getElementById('modalContent');
             
             const presence = getPresence(companyId, employee, day);
-            modalContent.innerHTML = `
-                <p><strong>Dipendente:</strong> ${employee}</p>
-                <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>
+            const isMultiple = false;
+            
+            modalContent.innerHTML = generateModalContent(presence, employee, day, isMultiple);
+            modal.classList.add('active');
+        }
+
+        function openModalForSelected() {
+            if (selectedCells.length === 0) return;
+
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            
+            // Usa la prima cella selezionata come riferimento
+            const firstCell = selectedCells[0];
+            const presence = getPresence(firstCell.companyId, firstCell.employee, firstCell.day);
+            
+            modalContent.innerHTML = generateModalContent(presence, null, null, true);
+            modal.classList.add('active');
+        }
+
+        function generateModalContent(presence, employee, day, isMultiple) {
+            return `
+                ${isMultiple ? 
+                    `<p><strong>Modifica multipla:</strong> ${selectedCells.length} celle selezionate</p>` :
+                    `<p><strong>Dipendente:</strong> ${employee}</p>
+                     <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>`
+                }
                 <div class="input-group">
                     <label>Ore lavorate:</label>
                     <input type="number" id="hoursInput" value="${presence.value === 'F' || presence.value === 'M' ? '' : presence.value}" 
@@ -912,8 +994,6 @@
                     <button class="modal-btn" style="background: #6c757d; color: white;" onclick="window.closeModal()">Annulla</button>
                 </div>
             `;
-            
-            modal.classList.add('active');
         }
         
         function closeModal() {
@@ -927,41 +1007,45 @@
             calculateVacationSummary();  // Aggiorna il riepilogo ferie
         }
 
+        async function applyToSelectedCells(value, overtime = '', notes = '') {
+            const cells = selectedCells.length > 0 ? selectedCells : [currentEditCell];
+            
+            showLoading(true);
+            try {
+                for (const cell of cells) {
+                    if (cell) {
+                        await setPresence(cell.companyId, cell.employee, cell.day, value, overtime, notes);
+                    }
+                }
+                await updateAfterChange();
+                closeModal();
+                clearSelection();
+            } finally {
+                showLoading(false);
+            }
+        }
+
         async function saveHours() {
             const hours = document.getElementById('hoursInput').value;
             const overtime = document.getElementById('overtimeInput').value;
             const notes = document.getElementById('notesInput').value;
-            if (hours && currentEditCell) {
-                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
-                await updateAfterChange();
-                closeModal();
+            if (hours) {
+                await applyToSelectedCells(hours, overtime, notes);
             }
         }
         
         async function saveFerie() {
-            if (currentEditCell) {
-                const notes = document.getElementById('notesInput').value;
-                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
-                await updateAfterChange();
-                closeModal();
-            }
+            const notes = document.getElementById('notesInput').value;
+            await applyToSelectedCells('F', '', notes);
         }
         
         async function saveMutua() {
-            if (currentEditCell) {
-                const notes = document.getElementById('notesInput').value;
-                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
-                await updateAfterChange();
-                closeModal();
-            }
+            const notes = document.getElementById('notesInput').value;
+            await applyToSelectedCells('M', '', notes);
         }
         
         async function clearDay() {
-            if (currentEditCell) {
-                await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
-                await updateAfterChange();
-                closeModal();
-            }
+            await applyToSelectedCells('', '', '');
         }
         
         // Aggiungi la classe per il nuovo colore delle celle
@@ -971,6 +1055,30 @@
             background: #e6d6fa !important;
             color: #4b2673;
             font-weight: 600;
+        }
+
+        .day-cell.selected {
+            outline: 3px solid #667eea !important;
+            position: relative;
+            z-index: 1;
+            transform: scale(1.05);
+        }
+
+        .multi-select-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        .multi-select-info.active {
+            display: block;
         }
         `;
         document.head.appendChild(style);
@@ -1073,7 +1181,7 @@
                             cellContent += '<br><small style="color: #3498db;">📝</small>';
                         }
                         
-                        html += `<td class="${cellClass}" onclick="window.openModal('${company.id}', '${employee}', ${day})" title="${presence.notes || ''}">${cellContent}</td>`;
+                        html += `<td class="${cellClass}" onclick="window.openModal('${company.id}', '${employee}', ${day}, event)" title="${presence.notes || ''}">${cellContent}</td>`;
                     }
                     
                     html += `</tr>`;
