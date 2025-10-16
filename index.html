@@ -921,13 +921,19 @@
             currentEditCell = null;
         }
         
+        // Funzione helper per aggiornare tutto dopo una modifica
+        async function updateAfterChange() {
+            await updateCalendar();  // Aggiorna il calendario
+            calculateVacationSummary();  // Aggiorna il riepilogo ferie
+        }
+
         async function saveHours() {
             const hours = document.getElementById('hoursInput').value;
             const overtime = document.getElementById('overtimeInput').value;
             const notes = document.getElementById('notesInput').value;
             if (hours && currentEditCell) {
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, hours, overtime, notes);
-                updateCalendar();
+                await updateAfterChange();
                 closeModal();
             }
         }
@@ -936,7 +942,7 @@
             if (currentEditCell) {
                 const notes = document.getElementById('notesInput').value;
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'F', '', notes);
-                updateCalendar();
+                await updateAfterChange();
                 closeModal();
             }
         }
@@ -945,7 +951,7 @@
             if (currentEditCell) {
                 const notes = document.getElementById('notesInput').value;
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, 'M', '', notes);
-                updateCalendar();
+                await updateAfterChange();
                 closeModal();
             }
         }
@@ -953,7 +959,7 @@
         async function clearDay() {
             if (currentEditCell) {
                 await setPresence(currentEditCell.companyId, currentEditCell.employee, currentEditCell.day, '', '', '');
-                updateCalendar();
+                await updateAfterChange();
                 closeModal();
             }
         }
@@ -1000,7 +1006,7 @@
                 }
             }
             closeFillAllModal();
-            updateCalendar();
+            await updateAfterChange();
         }
 
         function updateCalendar() {
