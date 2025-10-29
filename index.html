@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Presenze Dipendenti</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .sync-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .sync-status.synced {
+            background: #28a745;
+        }
+        
+        .sync-status.syncing {
+            background: #ffc107;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .controls label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .controls select, .controls input {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .controls select:focus, .controls input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .content {
+            padding: 30px;
+            overflow-x: auto;
+        }
+        
+        .company-section {
+            margin-bottom: 40px;
+        }
+        
+        .company-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .company-header h2 {
+            font-size: 1.5em;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .employee-name {
+            text-align: left;
+            font-weight: 600;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+        
+        .day-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 50px;
+            font-size: 14px;
+            line-height: 1.3;
+            vertical-align: middle;
+            padding: 8px 4px;
+        }
+        
+        .day-cell:hover {
+            background: #e7f1ff;
+            transform: scale(1.05);
+        }
+        
+        .day-cell small {
+            font-size: 11px;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .day-cell.filled {
+            background: #d4edda;
+            font-weight: 600;
+        }
+        
+        .day-cell.ferie {
+            background: #fff3cd;
+            font-weight: 600;
+        }
+        
+        .day-cell.mutua {
+            background: #f8d7da;
+            font-weight: 600;
+        }
+        
+        .weekend {
+            background: #f1f3f5;
+        }
+        
+        .fill-all-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        /* (rimosso) stile specifico per scheda dipendente */
+        
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+        
+        .modal-buttons {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .manage-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .manage-section h3 {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+        
+        .company-list {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .company-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .company-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .employee-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .employee-tag {
+            background: #e7f1ff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .employee-tag button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #667eea;
+        }
+
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            padding: 4px 12px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Stili per la sezione riepilogo ferie */
+        .summary-section {
+            margin: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .summary-section h2 {
+            color: #495057;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .vacation-summary {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .employee-vacation-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .employee-vacation-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .vacation-count {
+            font-size: 2em;
+            font-weight: bold;
+            color: #28a745;
+            margin: 10px 0;
+        }
+
+        .vacation-count.warning {
+            color: #ffc107;
+        }
+
+        .vacation-count.danger {
+            color: #dc3545;
+        }
+
+        .collision-alerts {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #dee2e6;
+        }
+
+        .collision-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .collision-alert strong {
+            color: #533f03;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Caricamento dati...</p>
+        </div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-box">
+            <div id="loginForm">
+                <h2>🔐 Accesso</h2>
+                <div class="input-group">
+                    <label>Email:</label>
+                    <input type="email" id="loginEmail" placeholder="Inserisci la tua email">
+                </div>
+                <div class="input-group">
+                    <label>Password:</label>
+                    <input type="password" id="loginPassword" placeholder="Inserisci la tua password">
+                </div>
+                <button class="btn btn-primary" onclick="handleLogin()">Accedi</button>
+                <p id="loginError" class="error-message"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="container" id="appContainer" style="display: none;">
+        <div class="header">
+            <h1>📅 Gestione Presenze Dipendenti</h1>
+            <p>Sistema completo per la gestione delle presenze con sincronizzazione cloud</p>
+            <div class="sync-status" id="syncStatus">🔄 Connessione in corso...</div>
+        </div>
+        
+        <div class="controls">
+            <div>
+                <label>Mese:</label>
+                <select id="monthSelect">
+                    <option value="0">Gennaio</option>
+                    <option value="1">Febbraio</option>
+                    <option value="2">Marzo</option>
+                    <option value="3">Aprile</option>
+                    <option value="4">Maggio</option>
+                    <option value="5">Giugno</option>
+                    <option value="6">Luglio</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Settembre</option>
+                    <option value="9">Ottobre</option>
+                    <option value="10">Novembre</option>
+                    <option value="11">Dicembre</option>
+                </select>
+            </div>
+            <div>
+                <label>Anno:</label>
+                <input type="number" id="yearInput" value="2025" min="2020" max="2030">
+            </div>
+            <button class="btn btn-primary" onclick="updateCalendar()">Aggiorna Calendario</button>
+            <button class="btn btn-success" onclick="exportToExcel()">📥 Esporta Excel</button>
+            <button class="btn btn-warning" onclick="toggleManage()">⚙️ Gestisci Aziende/Dipendenti</button>
+            <button class="btn" style="background: #dc3545; color: white; font-weight: bold;" onclick="resetMonthPresences()">❗ Svuota mese corrente</button>
+        </div>
+        
+        <div id="manageSection" class="manage-section" style="display: none;">
+            <h3>Gestione Aziende e Dipendenti</h3>
+            
+            <div class="input-group">
+                <label>Nome Azienda:</label>
+                <input type="text" id="companyNameInput" placeholder="Es: Azienda Alfa">
+            </div>
+            <button class="btn btn-primary" onclick="addCompany()">Aggiungi Azienda</button>
+            
+            <div style="margin-top: 20px;">
+                <div class="input-group">
+                    <label>Seleziona Azienda:</label>
+                    <select id="companySelectForEmployee"></select>
+                </div>
+                <div class="input-group">
+                    <label>Nome Dipendente:</label>
+                    <input type="text" id="employeeNameInput" placeholder="Es: Mario Rossi">
+                </div>
+                <button class="btn btn-primary" onclick="addEmployee()">Aggiungi Dipendente</button>
+            </div>
+            
+            <div id="companiesList" class="company-list" style="margin-top: 20px;"></div>
+        </div>
+        
+        <div class="content" id="calendarContent"></div>
+
+        <!-- Sezione Riepilogo Ferie -->
+        <div class="summary-section">
+            <h2>📊 Riepilogo Ferie e Analisi Sovrapposizioni</h2>
+            <div id="vacationSummary" class="vacation-summary">
+                <!-- Contenuto generato dinamicamente -->
+            </div>
+            <div id="collisionAlerts" class="collision-alerts">
+                <!-- Avvisi sovrapposizioni generati dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicatore selezione multipla -->
+    <div id="multiSelectInfo" class="multi-select-info">
+        <span id="selectedCount">0 celle selezionate</span>
+        <button class="btn btn-primary" style="margin-left: 10px;" onclick="openModalForSelected()">Modifica selezionate</button>
+        <button class="btn" style="background: #6c757d; color: white; margin-left: 5px;" onclick="clearSelection()">Annulla</button>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>Modifica Presenza</h3>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Modal per inserimento ore di compilazione massiva -->
+    <div id="fillAllModal" class="modal">
+        <div class="modal-content">
+            <h3>Compila tutti i giorni</h3>
+            <div class="input-group">
+                <label>Ore da inserire per ogni giorno feriale:</label>
+                <input type="number" id="fillAllHoursInput" min="1" max="24" step="0.5" value="8">
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn btn-success" id="confirmFillAllBtn">Conferma</button>
+                <button class="modal-btn" style="background: #6c757d; color: white;" onclick="closeFillAllModal()">Annulla</button>
+            </div>
+        </div>
+    </div>
+    
+    
+    
+    
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Configurazione Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAB68aGlLPg_mP40Gxz4d7rQ3lpOL96LJM",
+            authDomain: "registro-presenze-bb049.firebaseapp.com",
+            projectId: "registro-presenze-bb049",
+            storageBucket: "registro-presenze-bb049.firebasestorage.app",
+            messagingSenderId: "117257368343",
+            appId: "1:117257368343:web:c4fde2d997d81f393e7d52"
+        };
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Struttura dati
+        let companies = [];
+        let presences = {};
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let currentEditCell = null;
+        let selectedCells = [];
+        let isMultiSelectMode = false;
+        
+        // Gestione dell'autenticazione
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorElement = document.getElementById('loginError');
+            
+            try {
+                errorElement.textContent = '';
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error('Errore di login:', error);
+                errorElement.textContent = 'Errore di accesso: ' + error.message;
+            }
+        }
+        
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error('Errore durante il logout:', error);
+            }
+        }
+        
+        // Gestione dello stato dell'autenticazione
+        onAuthStateChanged(auth, async (user) => {
+            const loginContainer = document.getElementById('loginContainer');
+            const appContainer = document.getElementById('appContainer');
+
+            // Bypass login in locale o con ?nologin=true
+            const urlParams = new URLSearchParams(window.location.search);
+            const noLoginFlag = urlParams.get('nologin') === 'true';
+            const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+            if (!user && (isLocalhost || noLoginFlag)) {
+                // Simula utente fittizio
+                loginContainer.style.display = 'none';
+                appContainer.style.display = 'block';
+                // Aggiorna header con utente fittizio
+                const header = document.querySelector('.header');
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = `
+                    <span>👤 test@local.dev</span>
+                    <span style="background:#ffc107;color:#333;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">Modalità locale</span>
+                `;
+                header.appendChild(userInfo);
+                await loadData();
+                return;
+            }
+
+            if (user) {
+                // Utente autenticato
+                loginContainer.style.display = 'none';
+                appContainer.style.display = 'block';
+                // Aggiorna l'intestazione con le info dell'utente
+                const header = document.querySelector('.header');
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = `
+                    <span>👤 ${user.email}</span>
+                    <button class="logout-btn" onclick="window.handleLogout()">Esci</button>
+                `;
+                header.appendChild(userInfo);
+                await loadData();
+            } else {
+                // Utente non autenticato
+                loginContainer.style.display = 'flex';
+                appContainer.style.display = 'none';
+                updateSyncStatus('not-synced', '🔒 Accesso richiesto');
+            }
+        });
+
+        // Funzioni per aggiornare lo stato di sincronizzazione
+        function updateSyncStatus(status, message) {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.className = 'sync-status ' + status;
+            statusEl.textContent = message;
+        }
+
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.className = 'loading-overlay' + (show ? ' active' : '');
+        }
+
+        // Carica dati da Firebase
+        async function loadData() {
+            try {
+                showLoading(true);
+                updateSyncStatus('syncing', '🔄 Sincronizzazione...');
+
+                // Carica aziende
+                const companiesSnapshot = await getDocs(collection(db, 'companies'));
+                companies = [];
+                companiesSnapshot.forEach((doc) => {
+                    companies.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Se non ci sono aziende, crea dati di esempio
+                if (companies.length === 0) {
+                    await createSampleData();
+                }
+
+                // Carica presenze
+                const presencesSnapshot = await getDocs(collection(db, 'presences'));
+                presences = {};
+                presencesSnapshot.forEach((doc) => {
+                    presences[doc.id] = doc.data();
+                });
+
+                updateSyncStatus('synced', '✅ Sincronizzato');
+                showLoading(false);
+            } catch (error) {
+                console.error("Errore nel caricamento dei dati:", error);
+                updateSyncStatus('error', '❌ Errore di sincronizzazione');
+                showLoading(false);
+                alert('Errore nel caricamento dei dati: ' + error.message);
+            }
+        }
+
+        // Crea dati di esempio
+        async function createSampleData() {
+            const sampleCompanies = [
+                { id: '1', name: "Azienda Alpha", employees: ["Mario Rossi", "Luca Bianchi"] },
+                { id: '2', name: "Azienda Beta", employees: ["Anna Verdi", "Paolo Neri"] },
+                { id: '3', name: "Azienda Gamma", employees: ["Sara Gialli"] }
+            ];
+
+            for (const company of sampleCompanies) {
+                await setDoc(doc(db, 'companies', company.id), {
+                    name: company.name,
+                    employees: company.employees
+                });
+            }
+
+            companies = sampleCompanies;
+        }
+
+        // Salva aziende su Firebase
+        async function saveCompany(company) {
+            try {
+                updateSyncStatus('syncing', '🔄 Salvataggio...');
+                await setDoc(doc(db, 'companies', company.id.toString()), {
+                    name: company.name,
+                    employees: company.employees
+                });
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nel salvataggio dell'azienda:", error);
+                updateSyncStatus('error', '❌ Errore di salvataggio');
+                alert('Errore nel salvataggio: ' + error.message);
+            }
+        }
+
+        // Elimina azienda da Firebase
+        async function deleteCompanyFromDB(companyId) {
+            try {
+                updateSyncStatus('syncing', '🔄 Eliminazione...');
+                await deleteDoc(doc(db, 'companies', companyId.toString()));
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nell'eliminazione dell'azienda:", error);
+                updateSyncStatus('error', '❌ Errore di eliminazione');
+            }
+        }
+
+        function getDaysInMonth(month, year) {
+            return new Date(year, month + 1, 0).getDate();
+        }
+        
+        function getDayName(day, month, year) {
+            const date = new Date(year, month, day);
+            const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+            return days[date.getDay()];
+        }
+        
+        function isWeekend(day, month, year) {
+            const date = new Date(year, month, day);
+            return date.getDay() === 0 || date.getDay() === 6;
+        }
+        
+        function getPresenceKey(companyId, employee, day) {
+            return `${currentYear}-${currentMonth}-${companyId}-${employee}-${day}`;
+        }
+        
+        async function setPresence(companyId, employee, day, value, overtime = '', notes = '') {
+            const key = getPresenceKey(companyId, employee, day);
+            presences[key] = { value, overtime, notes };
+            
+            try {
+                updateSyncStatus('syncing', '🔄 Salvataggio...');
+                await setDoc(doc(db, 'presences', key), { value, overtime, notes });
+                updateSyncStatus('synced', '✅ Sincronizzato');
+            } catch (error) {
+                console.error("Errore nel salvataggio della presenza:", error);
+                updateSyncStatus('error', '❌ Errore di salvataggio');
+            }
+        }
+        
+        function getPresence(companyId, employee, day) {
+            const key = getPresenceKey(companyId, employee, day);
+            return presences[key] || { value: '', overtime: '', notes: '' };
+        }
+        
+        async function fillAllDays(companyId, employee) {
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            updateSyncStatus('syncing', '🔄 Compilazione in corso...');
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (!isWeekend(day, currentMonth, currentYear)) {
+                    await setPresence(companyId, employee, day, '8');
+                }
+            }
+            updateCalendar();
+        }
+        
+        function toggleCellSelection(cell, companyId, employee, day) {
+            const cellInfo = { companyId, employee, day };
+            const cellIndex = selectedCells.findIndex(c => 
+                c.companyId === companyId && 
+                c.employee === employee && 
+                c.day === day
+            );
+
+            if (cellIndex === -1) {
+                selectedCells.push(cellInfo);
+                cell.classList.add('selected');
+            } else {
+                selectedCells.splice(cellIndex, 1);
+                cell.classList.remove('selected');
+            }
+
+            const multiSelectInfo = document.getElementById('multiSelectInfo');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (selectedCells.length > 0) {
+                multiSelectInfo.classList.add('active');
+                selectedCount.textContent = `${selectedCells.length} celle selezionate`;
+            } else {
+                multiSelectInfo.classList.remove('active');
+                isMultiSelectMode = false;
+            }
+        }
+
+        function clearSelection() {
+            const selectedElements = document.querySelectorAll('.day-cell.selected');
+            selectedElements.forEach(el => el.classList.remove('selected'));
+            selectedCells = [];
+            document.getElementById('multiSelectInfo').classList.remove('active');
+            isMultiSelectMode = false;
+        }
+
+        function openModal(companyId, employee, day, event) {
+            if (event && event.ctrlKey) {
+                isMultiSelectMode = true;
+                toggleCellSelection(event.target, companyId, employee, day);
+                return;
+            }
+
+            // Se ci sono celle selezionate, apri il modal in modalità multipla
+            if (selectedCells.length > 0) {
+                // Se la cella cliccata non è già selezionata, la aggiungo alla selezione
+                const isAlreadySelected = selectedCells.some(c => c.companyId === companyId && c.employee === employee && c.day === day);
+                if (!isAlreadySelected) {
+                    toggleCellSelection(event.target, companyId, employee, day);
+                }
+                // Modal multiplo
+                const modal = document.getElementById('modal');
+                const modalContent = document.getElementById('modalContent');
+                const firstCell = selectedCells[0];
+                const presence = getPresence(firstCell.companyId, firstCell.employee, firstCell.day);
+                modalContent.innerHTML = generateModalContent(presence, null, null, true);
+                modal.classList.add('active');
+                return;
+            }
+
+            // Modalità singola cella
+            clearSelection();
+            currentEditCell = {companyId, employee, day};
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const presence = getPresence(companyId, employee, day);
+            const isMultiple = false;
+            modalContent.innerHTML = generateModalContent(presence, employee, day, isMultiple);
+            modal.classList.add('active');
+        }
+
+        function openModalForSelected() {
+            if (selectedCells.length === 0) return;
+
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            
+            // Usa la prima cella selezionata come riferimento
+            const firstCell = selectedCells[0];
+            const presence = getPresence(firstCell.companyId, firstCell.employee, firstCell.day);
+            
+            modalContent.innerHTML = generateModalContent(presence, null, null, true);
+            modal.classList.add('active');
+        }
+
+        function generateModalContent(presence, employee, day, isMultiple) {
+            return `
+                ${isMultiple ? 
+                    `<p><strong>Modifica multipla:</strong> ${selectedCells.length} celle selezionate</p>` :
+                    `<p><strong>Dipendente:</strong> ${employee}</p>
+                     <p><strong>Giorno:</strong> ${day} ${getDayName(day, currentMonth, currentYear)}</p>`
+                }
+                <div class="input-group">
+                    <label>Ore lavorate:</label>
+                    <input type="number" id="hoursInput" value="${presence.value === 'F' || presence.value === 'M' ? '' : presence.value}" 
+                           placeholder="Es: 8" min="0" max="24" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Ore straordinarie:</label>
+                    <input type="number" id="overtimeInput" value="${presence.overtime}" 
+                           placeholder="Es: 2" min="0" max="12" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>Note:</label>
+                    <input type="text" id="notesInput" value="${presence.notes}" 
+                           placeholder="Inserisci una nota...">
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn btn-success" onclick="window.saveHours()">Salva Ore</button>
+                    <button class="modal-btn btn-warning" onclick="window.saveFerie()">Ferie (F)</button>
+                    <button class="modal-btn btn-warning" onclick="window.saveMutua()">Mutua (M)</button>
+                    <button class="modal-btn btn-primary" onclick="window.clearDay()">Azzera</button>
+                    <button class="modal-btn" style="background: #6c757d; color: white;" onclick="window.closeModal()">Annulla</button>
+                </div>
+            `;
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentEditCell = null;
+        }
+        
+        // Funzione helper per aggiornare tutto dopo una modifica
+        async function updateAfterChange() {
+            await updateCalendar();  // Aggiorna il calendario
+            calculateVacationSummary();  // Aggiorna il riepilogo ferie
+        }
+
+        async function applyToSelectedCells(value, overtime = '', notes = '') {
+            const cells = selectedCells.length > 0 ? selectedCells : [currentEditCell];
+            
+            showLoading(true);
+            try {
+                for (const cell of cells) {
+                    if (cell) {
+                        await setPresence(cell.companyId, cell.employee, cell.day, value, overtime, notes);
+                    }
+                }
+                await updateAfterChange();
+                closeModal();
+                clearSelection();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function saveHours() {
+            const hours = document.getElementById('hoursInput').value;
+            const overtime = document.getElementById('overtimeInput').value;
+            const notes = document.getElementById('notesInput').value;
+            if (hours) {
+                await applyToSelectedCells(hours, overtime, notes);
+            }
+        }
+        
+        async function saveFerie() {
+            const notes = document.getElementById('notesInput').value;
+            await applyToSelectedCells('F', '', notes);
+        }
+        
+        async function saveMutua() {
+            const notes = document.getElementById('notesInput').value;
+            await applyToSelectedCells('M', '', notes);
+        }
+        
+        async function clearDay() {
+            await applyToSelectedCells('', '', '');
+        }
+        
+        // Aggiungi la classe per il nuovo colore delle celle
+        const style = document.createElement('style');
+        style.innerHTML = `
+        .day-cell.custom-hours {
+            background: #e6d6fa !important;
+            color: #4b2673;
+            font-weight: 600;
+        }
+
+        .day-cell.selected {
+            outline: 3px solid #667eea !important;
+            position: relative;
+            z-index: 1;
+            transform: scale(1.05);
+        }
+
+        .multi-select-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        .multi-select-info.active {
+            display: block;
+        }
+        `;
+        document.head.appendChild(style);
+
+        // Variabile per tenere traccia del dipendente/azienda selezionato per il fill all
+        let fillAllContext = null;
+
+        // Sostituisci la funzione fillAllDays con una che apre il modal
+        function openFillAllModal(companyId, employee) {
+            fillAllContext = { companyId, employee };
+            document.getElementById('fillAllHoursInput').value = 8;
+            document.getElementById('fillAllModal').classList.add('active');
+        }
+
+        // Chiudi il modal
+        function closeFillAllModal() {
+            document.getElementById('fillAllModal').classList.remove('active');
+            fillAllContext = null;
+        }
+
+        // Conferma e compila tutti i giorni
+        async function confirmFillAllDays() {
+            if (!fillAllContext) return;
+            const hours = document.getElementById('fillAllHoursInput').value;
+            const companyId = fillAllContext.companyId;
+            const employee = fillAllContext.employee;
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+
+            updateSyncStatus('syncing', '🔄 Compilazione in corso...');
+            for (let day = 1; day <= daysInMonth; day++) {
+                if (!isWeekend(day, currentMonth, currentYear)) {
+                    await setPresence(companyId, employee, day, hours);
+                }
+            }
+            closeFillAllModal();
+            await updateAfterChange();
+        }
+
+
+        function updateCalendar() {
+            currentMonth = parseInt(document.getElementById('monthSelect').value);
+            currentYear = parseInt(document.getElementById('yearInput').value);
+            
+            const content = document.getElementById('calendarContent');
+            const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+            
+            let html = '';
+            
+            companies.forEach(company => {
+                html += `
+                    <div class="company-section">
+                        <div class="company-header">
+                            <h2>${company.name}</h2>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th class="employee-name">Dipendente</th>
+                                        <th>Azioni</th>
+                `;
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    html += `<th>${day}<br>${dayName}</th>`;
+                }
+                
+                html += `
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                company.employees.forEach(employee => {
+                    html += `
+                        <tr>
+                            <td class="employee-name">${employee}</td>
+                            <td>
+                                <button class="btn btn-primary fill-all-btn" onclick="window.openFillAllModal('${company.id}', '${employee}')">Compila tutto</button>
+                            </td>
+                    `;
+                    
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const presence = getPresence(company.id, employee, day);
+                        const isWeekendDay = isWeekend(day, currentMonth, currentYear);
+                        let cellClass = 'day-cell';
+                        
+                        if (isWeekendDay) cellClass += ' weekend';
+                        if (presence.value) {
+                            if (presence.value === 'F') cellClass += ' ferie';
+                            else if (presence.value === 'M') cellClass += ' mutua';
+                            else if (presence.value !== '8') cellClass += ' custom-hours';
+                            else cellClass += ' filled';
+                        }
+                        
+                        let cellContent = presence.value;
+                        if (presence.overtime) {
+                            cellContent += `<br><small style="color: #e67e22;">+${presence.overtime}h</small>`;
+                        }
+                        if (presence.notes) {
+                            cellContent += '<br><small style="color: #3498db;">📝</small>';
+                        }
+                        
+                        html += `<td class="${cellClass}" onclick="window.openModal('${company.id}', '${employee}', ${day}, event)" title="${presence.notes || ''}">${cellContent}</td>`;
+                    }
+                    
+                    html += `</tr>`;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+        }
+        
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+            
+            companies.forEach(company => {
+                const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+                const data = [];
+                
+                const headerRow = ['Dipendente'];
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayName = getDayName(day, currentMonth, currentYear);
+                    headerRow.push(`${day} ${dayName}`);
+                    headerRow.push(`${day} Straord.`);
+                    headerRow.push(`${day} Note`);
+                }
+                data.push(headerRow);
+                
+                company.employees.forEach(employee => {
+                    const row = [employee];
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const presence = getPresence(company.id, employee, day);
+                        row.push(presence.value || '');
+                        row.push(presence.overtime || '');
+                        row.push(presence.notes || '');
+                    }
+                    data.push(row);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                XLSX.utils.book_append_sheet(wb, ws, company.name.substring(0, 31));
+            });
+            
+            const filename = `Presenze_${monthNames[currentMonth]}_${currentYear}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        function toggleManage() {
+            const section = document.getElementById('manageSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            if (section.style.display === 'block') {
+                updateCompanySelect();
+                updateCompaniesList();
+            }
+        }
+        
+        async function addCompany() {
+            const name = document.getElementById('companyNameInput').value.trim();
+            if (name) {
+                const newId = companies.length > 0 ? Math.max(...companies.map(c => parseInt(c.id))) + 1 : 1;
+                const newCompany = {id: newId.toString(), name: name, employees: []};
+                companies.push(newCompany);
+                await saveCompany(newCompany);
+                document.getElementById('companyNameInput').value = '';
+                updateCompanySelect();
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        async function addEmployee() {
+            const companyId = document.getElementById('companySelectForEmployee').value;
+            const name = document.getElementById('employeeNameInput').value.trim();
+            
+            if (companyId && name) {
+                const company = companies.find(c => c.id === companyId);
+                if (company) {
+                    company.employees.push(name);
+                    await saveCompany(company);
+                    document.getElementById('employeeNameInput').value = '';
+                    updateCompaniesList();
+                    updateCalendar();
+                }
+            }
+        }
+        
+        async function removeEmployee(companyId, employeeName) {
+            const company = companies.find(c => c.id === companyId);
+            if (company) {
+                company.employees = company.employees.filter(e => e !== employeeName);
+                await saveCompany(company);
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        async function removeCompany(companyId) {
+            if (confirm('Sei sicuro di voler eliminare questa azienda e tutti i suoi dipendenti?')) {
+                companies = companies.filter(c => c.id !== companyId);
+                await deleteCompanyFromDB(companyId);
+                updateCompanySelect();
+                updateCompaniesList();
+                updateCalendar();
+            }
+        }
+        
+        function updateCompanySelect() {
+            const select = document.getElementById('companySelectForEmployee');
+            select.innerHTML = '<option value="">Seleziona...</option>';
+            companies.forEach(company => {
+                select.innerHTML += `<option value="${company.id}">${company.name}</option>`;
+            });
+        }
+        
+        function updateCompaniesList() {
+            const list = document.getElementById('companiesList');
+            list.innerHTML = '';
+            
+            companies.forEach(company => {
+                const div = document.createElement('div');
+                div.className = 'company-item';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4>${company.name}</h4>
+                        <button class="btn" style="background: #dc3545; color: white; padding: 5px 10px; font-size: 12px;" 
+                                onclick="window.removeCompany('${company.id}')">Elimina Azienda</button>
+                    </div>
+                    <div class="employee-list">
+                        ${company.employees.map(emp => `
+                            <div class="employee-tag">
+                                ${emp}
+                                <button onclick="window.removeEmployee('${company.id}', '${emp}')">×</button>
+                            </div>
+                        `).join('') || '<p style="color: #6c757d; font-size: 12px;">Nessun dipendente</p>'}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        async function resetMonthPresences() {
+            if (!confirm('ATTENZIONE: Questa operazione cancellerà tutte le presenze del mese corrente per tutte le aziende e dipendenti. Sei sicuro di voler continuare?')) {
+                return;
+            }
+            
+            updateSyncStatus('syncing', '🔄 Eliminazione in corso...');
+            const keysToDelete = [];
+            for (const key in presences) {
+                if (key.startsWith(`${currentYear}-${currentMonth}-`)) {
+                    keysToDelete.push(key);
+                }
+            }
+            
+            for (const key of keysToDelete) {
+                try {
+                    await deleteDoc(doc(db, 'presences', key));
+                    delete presences[key];
+                } catch (error) {
+                    console.error("Errore nell'eliminazione della presenza:", error);
+                }
+            }
+            
+            updateSyncStatus('synced', '✅ Sincronizzato');
+            updateCalendar();
+        }
+        
+        // Chiudi modal cliccando fuori
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // Eventi per il modal di fill all
+        document.getElementById('confirmFillAllBtn').onclick = confirmFillAllDays;
+        window.openFillAllModal = openFillAllModal;
+        window.closeFillAllModal = closeFillAllModal;
+
+        // Esponi solo le funzioni necessarie
+        window.updateCalendar = updateCalendar;
+        window.exportToExcel = exportToExcel;
+        window.toggleManage = toggleManage;
+        window.addCompany = addCompany;
+        window.addEmployee = addEmployee;
+        window.removeEmployee = removeEmployee;
+        window.removeCompany = removeCompany;
+        window.resetMonthPresences = resetMonthPresences;
+        window.fillAllDays = fillAllDays;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.saveHours = saveHours;
+        window.saveFerie = saveFerie;
+        window.saveMutua = saveMutua;
+        window.clearDay = clearDay;
+        window.handleLogin = handleLogin;
+        window.handleLogout = handleLogout;
+
+        // Funzioni per il riepilogo ferie
+        function calculateVacationSummary() {
+            const summary = {};
+            const collisions = {};
+            const VACATION_LIMIT = 25;
+
+            // Inizializza il conteggio per ogni dipendente
+            companies.forEach(company => {
+                company.employees.forEach(employee => {
+                    summary[employee] = {
+                        count: 0,
+                        dates: []  // Per tracciare le date specifiche
+                    };
+                });
+            });
+
+            // Calcola le ferie per ogni mese dell'anno
+            for (let month = 0; month < 12; month++) {
+                const daysInMonth = getDaysInMonth(month, currentYear);
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${day}/${month + 1}/${currentYear}`;
+                    const employeesOnVacation = [];
+
+                    // Controlla ogni dipendente per questo giorno
+                    companies.forEach(company => {
+                        company.employees.forEach(employee => {
+                            const presenceKey = `${currentYear}-${month}-${company.id}-${employee}-${day}`;
+                            const presence = presences[presenceKey];
+                            
+                            if (presence && presence.value === 'F') {
+                                summary[employee].count++;
+                                summary[employee].dates.push(dateStr);
+                                employeesOnVacation.push(employee);
+                            }
+                        });
+                    });
+
+                    // Verifica collisioni
+                    if (employeesOnVacation.length > 1) {
+                        collisions[dateStr] = employeesOnVacation;
+                    }
+                }
+            }
+
+            // Aggiorna la UI con il riepilogo
+            const summaryContainer = document.getElementById('vacationSummary');
+            summaryContainer.innerHTML = '';
+
+            Object.entries(summary).forEach(([employee, data]) => {
+                const card = document.createElement('div');
+                card.className = 'employee-vacation-card';
+                
+                let statusClass = '';
+                if (data.count > VACATION_LIMIT) {
+                    statusClass = 'danger';
+                } else if (data.count >= VACATION_LIMIT - 5) {
+                    statusClass = 'warning';
+                }
+
+                card.innerHTML = `
+                    <h3>${employee}</h3>
+                    <div class="vacation-count ${statusClass}">${data.count}</div>
+                    <p>giorni di ferie utilizzati${data.count > VACATION_LIMIT ? ' <strong style="color: #dc3545;">(Limite superato!)</strong>' : ''}</p>
+                    <p style="font-size: 0.9em; color: #666;">Date: ${data.dates.join(', ') || 'Nessuna ferie registrata'}</p>
+                `;
+                
+                summaryContainer.appendChild(card);
+            });
+
+            // Aggiorna gli avvisi di collisione
+            const collisionsContainer = document.getElementById('collisionAlerts');
+            collisionsContainer.innerHTML = Object.keys(collisions).length > 0 ? 
+                '<h3 style="color: #856404; margin-bottom: 15px;">⚠️ Sovrapposizioni Rilevate</h3>' : '';
+
+            Object.entries(collisions).forEach(([date, employees]) => {
+                const alert = document.createElement('div');
+                alert.className = 'collision-alert';
+                alert.innerHTML = `
+                    <strong>${date}:</strong> ${employees.join(', ')} hanno ferie pianificate nello stesso giorno.
+                `;
+                collisionsContainer.appendChild(alert);
+            });
+        }
+
+        // Aggiorna il riepilogo quando necessario
+        const originalUpdateCalendar = window.updateCalendar;
+        window.updateCalendar = function() {
+            originalUpdateCalendar();
+            calculateVacationSummary();
+        };
+
+        const originalLoadData = loadData;
+        window.loadData = async function() {
+            await originalLoadData();
+            calculateVacationSummary();
+        };
+
+        // Inizializzazione
+        async function init() {
+            document.getElementById('monthSelect').value = currentMonth;
+            document.getElementById('yearInput').value = currentYear;
+        }
+        
+        init();
+    </script>
+</body>
+</html>
